@@ -1,4 +1,4 @@
-// 全局变量缓存
+// Global variable cache
 let scene = getById('scene')
 let fileInput = getById('fileInput')
 let colorInput = getById('colorInput')
@@ -26,9 +26,9 @@ const app = new PIXI.Application({
     preserveDrawingBuffer: true,
     resolution: window.devicePixelRatio
 });
-// 未解决的问题：
-// 设置overflow:hidden会导致缩放窗口画布闪烁
-// 不设置会导致resizeTo不能正常工作
+// Open issues:
+// overflow:hidden causes canvas flicker when resizing the window
+// Without it, resizeTo does not behave correctly
 scene.appendChild(app.view);
 
 const reload = () => {
@@ -45,15 +45,15 @@ const reload = () => {
 const loadFiles = (fileUrls) => {
     app.loader
         .reset()
-        .add(fileUrls)
+        .add(sortSpineLoadUrls(fileUrls))
         .load(onLoaded);
 }
 
-// Spine加载函数
+// Spine load handler
 function onLoaded(loader, res) {
     const {skins, skeletons} = loadSkeletons()
-    if (!skeletons) {
-        alert('无效或者不支持的文件')
+    if (!skeletons || skeletons.length === 0) {
+        alert('Invalid or unsupported file (need a .json or .skel with atlas and textures loading correctly).')
         return
     }
     if (superposition) {
@@ -158,56 +158,45 @@ function onLoaded(loader, res) {
         const scale = +zoomInput.value / 100
         const defaultMix = +mixInput.value
         for (const key in res) {
-            if (key.endsWith('skel') || key.endsWith('json')) {
-                try {
-                    res[key].spineAtlas.pages.forEach(p => p.baseTexture.alphaMode = alphaMode);
-                    const skeleton = new PIXI.spine.Spine(res[key].spineData);
-                    skeleton.position.set(app.view.clientWidth / 2, app.view.clientHeight / 2)
-                    skeleton.scale.x = skeleton.scale.y = scale
-                    skeleton.state.timeScale = speed
-                    skeleton.state.data.defaultMix = defaultMix
-                    skeleton.autoUpdate = true;
-                    const skeletonSkins = skeleton.spineData.skins.map(s => s.name)
-                    const skeletonAnimations = skeleton.spineData.animations.map(a => {
-                        return {
-                            name: a.name,
-                            duration: a.duration.toFixed(3)
-                        }
-                    })
-                    skins = skins.concat(skeletonSkins.filter(s => !skins.includes(s)))
-                    // if (skins.length === 0) {
-                    //     skins = skins.concat(skeletonSkins)
-                    // } else {
-                    //     const toRemove = []
-                    //     for (const skin of skins) {
-                    //         if (!skeletonSkins.map(s => s.name).includes(skin.name)) {
-                    //             toRemove.push(skin.name)
-                    //         }
-                    //     }
-                    //     skins = skins.filter(s => !toRemove.includes(s.name))
-                    // }
-                    if (availableAnimations.length === 0) {
-                        availableAnimations = availableAnimations.concat(skeletonAnimations)
-                    } else {
-                        const toRemove = []
-                        for (const animation of availableAnimations) {
-                            if (!skeletonAnimations.map(a => a.name).includes(animation.name)) {
-                                toRemove.push(animation.name)
-                            }
-                        }
-                        availableAnimations = availableAnimations.filter(a => !toRemove.includes(a.name))
+            const resource = res[key]
+            if (!resource || !resource.spineData || !resource.spineAtlas) continue
+            try {
+                resource.spineAtlas.pages.forEach(p => p.baseTexture.alphaMode = alphaMode);
+                const skeleton = new PIXI.spine.Spine(resource.spineData);
+                skeleton.position.set(app.view.clientWidth / 2, app.view.clientHeight / 2)
+                skeleton.scale.x = skeleton.scale.y = scale
+                skeleton.state.timeScale = speed
+                skeleton.state.data.defaultMix = defaultMix
+                skeleton.autoUpdate = true;
+                const skeletonSkins = skeleton.spineData.skins.map(s => s.name)
+                const skeletonAnimations = skeleton.spineData.animations.map(a => {
+                    return {
+                        name: a.name,
+                        duration: a.duration.toFixed(3)
                     }
-                    skeletons.push(skeleton)
-                } catch (e) {
-                    console.log('Load failed: ' + res[key])
+                })
+                skins = skins.concat(skeletonSkins.filter(s => !skins.includes(s)))
+                if (availableAnimations.length === 0) {
+                    availableAnimations = availableAnimations.concat(skeletonAnimations)
+                } else {
+                    const toRemove = []
+                    for (const animation of availableAnimations) {
+                        if (!skeletonAnimations.map(a => a.name).includes(animation.name)) {
+                            toRemove.push(animation.name)
+                        }
+                    }
+                    availableAnimations = availableAnimations.filter(a => !toRemove.includes(a.name))
                 }
+                skeletons.push(skeleton)
+            } catch (e) {
+                console.error('Spine load failed for', key, e)
             }
         }
         return {skins, skeletons}
     }
 }
 
-// Spine动画对象修饰函数
+// Decorate Spine skeleton (pan/zoom on view)
 function decorate(skeleton) {
     let isDragging = false;
     let mouseX, mouseY, deltaX, deltaY;
@@ -244,7 +233,7 @@ function decorate(skeleton) {
             event.preventDefault();
 
             const originalScale = entity.scale.x
-            const scaleFactor = event.deltaY > 0 ? 0.95 : 1.05; // 根据滚轮方向调整缩放比例
+            const scaleFactor = event.deltaY > 0 ? 0.95 : 1.05; // scale by wheel direction
             const minScale = 0.1, maxScale = 5;
             const newScale = Math.min(Math.max(originalScale * scaleFactor, minScale), maxScale)
 
@@ -261,7 +250,7 @@ function decorate(skeleton) {
     return skeleton
 }
 
-// 回调函数
+// Callbacks
 function toggleSkin(ev) {
     setSkin(ev.target.value)
     resetSlots()

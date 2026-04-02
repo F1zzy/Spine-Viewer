@@ -16,36 +16,36 @@ input[name='animation'] {
 }
 
 [type='range'] {
-    -webkit-appearance: none; /* 隐藏默认的样式 */
-    height: 10px; /* 设置高度 */
-    border-radius: 5px; /* 设置圆角 */
-    background: #ddd; /* 设置背景 */
-    outline: none; /* 去掉外边框 */
-    opacity: 0.7; /* 设置透明度 */
-    -webkit-transition: .2s; /* 添加过渡效果 */
+    -webkit-appearance: none; /* hide native styling */
+    height: 10px;
+    border-radius: 5px;
+    background: #ddd;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
     transition: opacity .2s;
 }
 
 [type='range']:hover {
-    opacity: 1; /* 鼠标悬停时设置不透明度为1 */
+    opacity: 1; /* full opacity on hover */
 }
 
 [type='range']::-webkit-slider-thumb {
-    -webkit-appearance: none; /* 隐藏默认的样式 */
+    -webkit-appearance: none; /* hide native styling */
     appearance: none;
-    width: 20px; /* 设置滑块的宽度 */
-    height: 20px; /* 设置滑块的高度 */
-    border-radius: 50%; /* 设置滑块的圆角 */
-    background: #91b486; /* 设置滑块的背景 */
-    cursor: pointer; /* 添加手形光标 */
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #91b486;
+    cursor: pointer;
 }
 
 [type='range']::-moz-range-thumb {
-    width: 20px; /* 设置滑块的宽度 */
-    height: 20px; /* 设置滑块的高度 */
-    border-radius: 50%; /* 设置滑块的圆角 */
-    background: #4caf50; /* 设置滑块的背景 */
-    cursor: pointer; /* 添加手形光标 */
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4caf50;
+    cursor: pointer;
 }
 
 li::marker {

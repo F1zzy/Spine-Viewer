@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,10 +9,10 @@
 <body>
 <div id="export-box">
     <div class="export-option label">
-        <label for="export-format">输出格式：</label>
-        <label for="export-framerate">帧率：</label>
-        <label for="export-animation">目标动画：</label>
-        <label for="export-path">输出目录：</label>
+        <label for="export-format">Format:</label>
+        <label for="export-framerate">Frame rate:</label>
+        <label for="export-animation">Animation:</label>
+        <label for="export-path">Output folder:</label>
     </div>
     <div class="export-option input">
         <select id="export-format">
@@ -26,7 +26,7 @@
         </select>
         <span class="path-select">
             <input type="text" id="export-path">
-            <button onclick="selectExportPath()">选择</button>
+            <button onclick="selectExportPath()">Browse…</button>
         </span>
     </div>
 
@@ -38,8 +38,8 @@
     </span>
 
     <span class="export-option button">
-        <button onclick="preload.closeExportWindow()" id="hide-export-box-button">关闭</button>
-        <button onclick="getExportOptions()" id="export-button">导出</button>
+        <button onclick="preload.closeExportWindow()" id="hide-export-box-button">Close</button>
+        <button onclick="getExportOptions()" id="export-button">Export</button>
     </span>
 </div>
 <script src="../js/util.js"></script>

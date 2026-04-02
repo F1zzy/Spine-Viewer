@@ -37,7 +37,7 @@
     "productName": "Spine Viewer",
     "asar": false,
     "win": {
-      "icon": "./src/assets/image/otogi.ico"
+      "icon": "./src/assets/image/rogue.ico"
     }
   }
 }

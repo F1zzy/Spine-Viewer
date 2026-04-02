@@ -1,6 +1,6 @@
-// 事件监听
+// Event listeners
 
-// 监听拖拽文件
+// Drag-and-drop files
 getById('main').addEventListener('dragover', (ev) => {
     if (isExporting) return
     ev.preventDefault()
@@ -16,35 +16,36 @@ getById('main').addEventListener('drop', async (ev) => {
     if (isExporting) return
     ev.preventDefault()
     getById('mask').style.display = 'none'
-    const filePaths = Array.from(ev.dataTransfer.files).map(f => f.path).filter(p => p.endsWith('skel') || p.endsWith('json'))
-    if (filePaths.length > 0) {
+    const filePaths = Array.from(ev.dataTransfer.files).map(f => f.path).filter(isSpineAssetPath)
+    if (filePaths.length > 0 && filePaths.some(isSpineSkeletonPath)) {
         const fileUrls = await getUrlsByPaths(filePaths)
         window.fileUrls = fileUrls
         loadFiles(fileUrls)
     }
 })
 
-// 监听叠加
+// Stack mode checkbox
 getById('superposition').addEventListener('click', (ev) => {
     superposition = ev.target.checked
 })
 
-// 监听选择文件
+// File picker
 fileInput.addEventListener('change', async () => {
     if (fileInput.files.length > 0) {
-        let filePaths = Array.from(fileInput.files).map(f => f.path)
+        let filePaths = Array.from(fileInput.files).map(f => f.path).filter(isSpineAssetPath)
+        if (filePaths.length === 0 || !filePaths.some(isSpineSkeletonPath)) return
         let fileUrls = await getUrlsByPaths(filePaths)
         window.fileUrls = fileUrls
         loadFiles(fileUrls)
     }
 })
 
-// 监听选择背景色
+// Background color
 colorInput.addEventListener('input', () => {
     app.renderer.backgroundColor = parseInt(colorInput.value.slice(1), 16)
 })
 
-// 监听窗口大小改变
+// Window / scene resize
 let resizeTimer, resizeTimer2;
 const sceneObserver = new ResizeObserver(() => {
     clearTimeout(resizeTimer)
@@ -62,7 +63,7 @@ const sceneObserver = new ResizeObserver(() => {
 });
 sceneObserver.observe(scene);
 
-// 监听选择AlphaMode
+// Alpha mode (texture premultiply)
 const alphaModeOptions = document.querySelectorAll('input[name="alpha-mode"]')
 alphaModeOptions.forEach((radio) => {
     radio.addEventListener('click', (ev) => {
@@ -79,7 +80,7 @@ alphaModeOptions.forEach((radio) => {
     })
 })
 
-// 监听背景透明
+// Transparent background toggle
 getById('bg-transparent').addEventListener('click', (ev) => {
     if (ev.target.checked) {
         app.renderer.backgroundColor = 0
@@ -92,14 +93,14 @@ getById('bg-transparent').addEventListener('click', (ev) => {
     }
 })
 
-// 监听缩放滑块
+// Zoom slider
 zoomInput.addEventListener('input', () => {
     let scale = +zoomInput.value / 100
     setZoom(scale)
     getById('zoom-show').innerText = zoomInput.value + '%'
 })
 
-// 监听速度滑块
+// Speed slider
 speedInput.addEventListener('input', () => {
     let speed = +speedInput.value
     setSpeed(speed)
@@ -107,14 +108,14 @@ speedInput.addEventListener('input', () => {
     getById('speed-show').innerText = (+speedInput.value).toFixed(2) + 'x'
 })
 
-// 监听mix time滑块
+// Default mix time slider
 mixInput.addEventListener('input', () => {
     let mix = +mixInput.value
     setMix(mix)
     getById('default-mix-show').innerText = mix.toFixed(1) + 's'
 })
 
-// 监听track选择
+// Animation track selection
 document.querySelectorAll('input[name="track"]').forEach(t => {
     t.addEventListener('change', () => {
         track.current = +t.value
@@ -126,7 +127,7 @@ document.querySelectorAll('input[name="track"]').forEach(t => {
 })
 
 
-// 监听滚轮缩放和拖拽
+// Wheel zoom and drag on canvas
 let isDragging = false;
 let mouseX, mouseY, deltaX, deltaY;
 app.view.addEventListener('pointerdown', (event) => {
@@ -161,7 +162,7 @@ app.view.addEventListener('wheel', (event) => {
     event.preventDefault();
     const noEmpty = app.stage.children.length > 0
     const originalScale = noEmpty ? app.stage.children[0].scale.x : +(zoomInput.value / 100);
-    const scaleFactor = event.deltaY > 0 ? 0.95 : 1.05; // 根据滚轮方向调整缩放比例
+    const scaleFactor = event.deltaY > 0 ? 0.95 : 1.05; // scale by wheel direction
     const minScale = 0.1, maxScale = 5;
     const newScale = Math.min(Math.max(originalScale * scaleFactor, minScale), maxScale)
 
@@ -177,7 +178,7 @@ app.view.addEventListener('wheel', (event) => {
     getById('zoom-show').innerText = zoomInput.value + '%'
 });
 
-// 监听右键菜单
+// Context menu
 scene.addEventListener('contextmenu', (ev) => {
     ev.preventDefault()
     preload.showContextMenu(ev)
@@ -189,10 +190,10 @@ preload.onCopyImage(() => {
     })
 })
 
-// 监听接收导出选项
+// Export options from export window
 preload.onReceiveExportOptions(exportAnimation)
 
-// 监听窗口最大化的切换
+// Maximize / restore window chrome
 preload.onMaximize(() => {
     getById('maximize-icon').innerText = '❐'
 })

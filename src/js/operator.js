@@ -1,4 +1,4 @@
-// spine操作函数
+// Spine control helpers
 const setZoom = (scale) => {
     app.stage.children.forEach(a => {
         a.scale.x = a.scale.y = scale

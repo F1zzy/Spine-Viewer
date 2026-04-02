@@ -53,19 +53,19 @@ const fillExportAnimations = (animations) => {
 }
 
 
-// 监听接收可导出的动画
+// Animations available for export
 preload.onReceiveExportAnimations((animations) => {
     progressShow.innerText = '0/0'
     progress.value = '0'
     fillExportAnimations(animations)
 })
 
-// 监听导出完成
+// Export finished
 preload.onExportComplete(() => {
     getById('export-button').disabled = false
     getById('hide-export-box-button').disabled = false
     progress.value = progress.getAttribute('max')
-    progressShow.innerText = '完成'
+    progressShow.innerText = 'Done'
 })
 
 preload.onSetExportProgress((data) => {
@@ -80,7 +80,7 @@ preload.onSetExportProgress((data) => {
             progressShow.innerText = `${data.frameIndex}/${frameNumber}`
             break
         case 2:
-            progressShow.innerText = '合成中...'
+            progressShow.innerText = 'Encoding…'
             break
     }
 })

@@ -21816,7 +21816,7 @@ this.PIXI.spine = this.PIXI.spine || {};
             skeletonData.hash = highHash == 0 && lowHash == 0 ? null : highHash.toString(16) + lowHash.toString(16);
             skeletonData.version = input.readString();
             var verShort = skeletonData.version.substr(0, 3);
-            if (verShort !== '4.0' && verShort !== '4.1') {
+            if (verShort !== '4.0' && verShort !== '4.1' && verShort !== '4.2' && verShort !== '4.3') {
                 var error = "Spine 4.1 loader cant load version " + skeletonData.version + ". Please configure your pixi-spine bundle";
                 console.error(error);
             }
@@ -22879,7 +22879,7 @@ this.PIXI.spine = this.PIXI.spine || {};
                 skeletonData.hash = skeletonMap.hash;
                 skeletonData.version = skeletonMap.spine;
                 var verShort = skeletonData.version.substr(0, 3);
-                if (verShort !== '4.0' && verShort !== '4.1') {
+                if (verShort !== '4.0' && verShort !== '4.1' && verShort !== '4.2' && verShort !== '4.3') {
                     var error = "Spine 4.1 loader cant load version " + skeletonMap.spine + ". Please configure your pixi-spine bundle";
                     console.error(error);
                 }
@@ -24037,6 +24037,9 @@ this.PIXI.spine = this.PIXI.spine || {};
             return SPINE_VERSION.VER40;
         }
         if (ver3 === '4.1') {
+            return SPINE_VERSION.VER41;
+        }
+        if (ver3 === '4.2' || ver3 === '4.3') {
             return SPINE_VERSION.VER41;
         }
         // try parse old versions with 3.7

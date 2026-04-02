@@ -5,6 +5,18 @@ const fs = require("fs");
 const {exec} = require('child_process')
 
 app.commandLine.appendSwitch('charset', 'utf-8');
+
+// Chromium cache errors ("Unable to move the cache: Access is denied", GPU cache -2) often come from
+// Windows permission/sync issues (e.g. OneDrive). Force userData and disk caches under AppData\Roaming.
+const userDataPath = path.join(app.getPath('appData'), 'Spine Viewer')
+app.setPath('userData', userDataPath)
+const diskCacheDir = path.join(userDataPath, 'chromium-disk-cache')
+try {
+    fs.mkdirSync(diskCacheDir, {recursive: true})
+} catch (_) { /* ignore */ }
+app.commandLine.appendSwitch('disk-cache-dir', diskCacheDir)
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+
 process.env.CACHE_PATH = path.join(__dirname, 'cache')
 process.env.FFMPEG_PATH = path.join(__dirname, 'ffmpeg', 'ffmpeg.exe');
 
@@ -34,7 +46,7 @@ const createWindow = (log) => {
     })
 
     win.loadFile('./src/index.html').then(() => {
-        // win.openDevTools()
+        win.openDevTools()
         win.webContents.send('debug', log)
         sub = new BrowserWindow({
             width: 450,
@@ -72,11 +84,22 @@ const createWindow = (log) => {
 
 }
 
-// 创建一个本地 HTTP 服务器
+function mimeTypeForFile(filePath) {
+    const lower = filePath.toLowerCase()
+    if (lower.endsWith('.json')) return 'application/json; charset=utf-8'
+    if (lower.endsWith('.webp')) return 'image/webp'
+    if (lower.endsWith('.png')) return 'image/png'
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+    if (lower.endsWith('.atlas') || lower.endsWith('.txt')) return 'text/plain; charset=utf-8'
+    if (lower.endsWith('.skel')) return 'application/octet-stream'
+    return 'application/octet-stream'
+}
+
+// Local HTTP server for loading project files
 const server = http.createServer((req, res) => {
     let filePath = decodeURIComponent(req.url.slice(1))
     let fileExists;
-    if (filePath.endsWith('.atlas')) {
+    if (filePath.toLowerCase().endsWith('.atlas')) {
         let txtPath = filePath + '.txt'
         filePath = (fs.existsSync(filePath) && filePath) || (fs.existsSync(txtPath) && txtPath)
         fileExists = !!filePath
@@ -89,13 +112,14 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    const contentType = mimeTypeForFile(filePath)
     fs.readFile(filePath, (err, data) => {
         if (err) {
             res.writeHead(500);
             res.end('Error loading file');
             return;
         }
-        res.writeHead(200);
+        res.writeHead(200, {'Content-Type': contentType});
         res.end(data);
     });
 });
@@ -122,7 +146,7 @@ app.whenReady().then(() => {
     ipcMain.on('show-context-menu', (ev) => {
         const contextMenu = new Menu();
         contextMenu.append(new MenuItem({
-            label: '复制图像',
+            label: 'Copy image',
             click: () => {
                 win.webContents.send('copy-image')
             }
@@ -130,10 +154,10 @@ app.whenReady().then(() => {
         contextMenu.popup(win, ev.x, ev.y);
     })
 
-    // 导出gif相关
+    // Export (GIF/APNG/MP4 via ffmpeg)
     ipcMain.handle('select-export-path', () => {
         const exportPath = dialog.showOpenDialogSync(win, {
-            title: '输出文件夹',
+            title: 'Output folder',
             properties: ['openDirectory']
         })
         return exportPath ? exportPath[0] : ''
@@ -188,7 +212,7 @@ app.on('window-all-closed', () => {
 })
 
 
-// 将 base64 格式的图片保存为本地文件
+// Save a base64-encoded frame to disk
 function saveBase64Image(image) {
     const base64Image = image.data.split(';base64,').pop();
     const imageBuffer = Buffer.from(base64Image, 'base64');
