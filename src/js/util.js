@@ -11,15 +11,7 @@ const isSpineSkeletonPath = (p) => /\.(json|skel)$/i.test(p)
 
 const isSpineAssetPath = (p) => /\.(json|skel|atlas|webp|png|jpe?g)$/i.test(p)
 
-const pathFromLoaderUrl = (urlOrKey) => {
-    let path = urlOrKey.split('?')[0]
-    try {
-        const idx = path.indexOf('://')
-        if (idx >= 0) path = path.slice(path.indexOf('/', idx + 3) + 1)
-        path = decodeURIComponent(path)
-    } catch (_) { /* keep path */ }
-    return path.replace(/\\/g, '/').toLowerCase()
-}
+
 
 const isSpineSkeletonResourceKey = (key) => {
     const p = pathFromLoaderUrl(key)
@@ -35,16 +27,22 @@ const spineLoadRank = (url) => {
 
 const sortSpineLoadUrls = (urls) => [...urls].sort((a, b) => spineLoadRank(a) - spineLoadRank(b))
 
+const pathFromLoaderUrl = (urlOrKey) => {
+    // Standardize slashes and remove the file:// protocol if present for internal lookups
+    let path = urlOrKey.replace('file://', '');
+    return path.replace(/\\/g, '/').toLowerCase();
+}
+
 const getFileUrl = async (filePath) => {
-    const port = await preload.port()
-    const norm = filePath.replaceAll('\\', '/')
-    // Encode each path segment but keep "/" so URLs look like /C%3A/Users/.../file.json.
-    // If the whole path were one encoded blob (%2F for slashes), pixi-spine's baseUrl logic
-    // (lastIndexOf("/") on the URL) breaks and textures load from the wrong folder → blank mesh.
-    const parts = norm.split('/')
-    const encoded = parts.map((seg) => (seg === '' ? '' : encodeURIComponent(seg))).join('/')
-    const pathname = encoded.startsWith('/') ? encoded : `/${encoded}`
-    return `http://localhost:${port}${pathname}`
+    // On Mac, a filePath looks like /Users/name/folder/file.json
+    // We just need to ensure it's a valid file URL
+    let norm = filePath.replaceAll('\\', '/');
+
+    // Ensure it starts with exactly one leading slash for the protocol
+    if (!norm.startsWith('/')) norm = '/' + norm;
+
+    // Use the native file protocol
+    return `file://${norm}`;
 }
 
 const getUrlsByPaths = async (paths) => {

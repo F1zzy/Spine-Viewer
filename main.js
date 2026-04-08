@@ -33,7 +33,8 @@ const createWindow = (log) => {
         fullscreenable: false,
         autoHideMenuBar: true,
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js')
+            preload: path.join(__dirname, 'preload.js'),
+            webSecurity: false,
         }
     })
 
@@ -61,7 +62,8 @@ const createWindow = (log) => {
             fullscreenable: false,
             autoHideMenuBar: true,
             webPreferences: {
-                preload: path.join(__dirname, 'preload.js')
+                preload: path.join(__dirname, 'preload.js'),
+                webSecurity: false,
             }
         })
         sub.loadFile('./src/pages/export.html').then(() => {
