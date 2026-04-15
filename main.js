@@ -20,6 +20,14 @@ app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 process.env.CACHE_PATH = path.join(__dirname, 'cache')
 process.env.FFMPEG_PATH = path.join(__dirname, 'ffmpeg', 'ffmpeg.exe');
 
+function resolveFfmpegCommand() {
+    if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
+        return `"${process.env.FFMPEG_PATH}"`
+    }
+    // Fallback to PATH so users can rely on a system-level ffmpeg install.
+    return 'ffmpeg'
+}
+
 let win, sub;
 let animation;
 
@@ -33,8 +41,7 @@ const createWindow = (log) => {
         fullscreenable: false,
         autoHideMenuBar: true,
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            webSecurity: false,
+            preload: path.join(__dirname, 'preload.js')
         }
     })
 
@@ -47,7 +54,7 @@ const createWindow = (log) => {
     })
 
     win.loadFile('./src/index.html').then(() => {
-        win.openDevTools()
+        // win.openDevTools()
         win.webContents.send('debug', log)
         sub = new BrowserWindow({
             width: 450,
@@ -62,8 +69,7 @@ const createWindow = (log) => {
             fullscreenable: false,
             autoHideMenuBar: true,
             webPreferences: {
-                preload: path.join(__dirname, 'preload.js'),
-                webSecurity: false,
+                preload: path.join(__dirname, 'preload.js')
             }
         })
         sub.loadFile('./src/pages/export.html').then(() => {
@@ -172,21 +178,27 @@ app.whenReady().then(() => {
     ipcMain.handle('ffmpeg', (ev, options) => {
         const imagePath = path.join(process.env.CACHE_PATH, animation)
         const outputPath = options.output
+        const ffmpegCmd = resolveFfmpegCommand()
         let instruction;
         switch (options.format) {
             case 'APNG':
-                instruction = `"${process.env.FFMPEG_PATH}" -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -vf "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -plays 0 "${path.join(outputPath, options.animation + '.apng')}"`
+                instruction = `${ffmpegCmd} -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -vf "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -plays 0 "${path.join(outputPath, options.animation + '.apng')}"`
                 break
             case 'MP4':
-                instruction = `"${process.env.FFMPEG_PATH}" -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -crf 17 "${path.join(outputPath, options.animation + '.mp4')}"`
+                instruction = `${ffmpegCmd} -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -crf 17 "${path.join(outputPath, options.animation + '.mp4')}"`
                 break
             case 'GIF':
             default:
-                instruction = `"${process.env.FFMPEG_PATH}" -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -vf "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" "${path.join(outputPath, options.animation + '.gif')}"`
+                instruction = `${ffmpegCmd} -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -vf "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" "${path.join(outputPath, options.animation + '.gif')}"`
                 break
         }
         exec(instruction, (error, stdout, stderr) => {
-            win.webContents.send('debug', {stdout, stderr})
+            const missingLocalBinary = !fs.existsSync(process.env.FFMPEG_PATH)
+            const debugInfo = {stdout, stderr}
+            if (error && missingLocalBinary) {
+                debugInfo.hint = `Local ffmpeg missing at ${process.env.FFMPEG_PATH}. Add ffmpeg.exe there or install ffmpeg globally and ensure it is on PATH.`
+            }
+            win.webContents.send('debug', debugInfo)
             fs.readdir(imagePath, (err, files) => {
                     files.forEach(file => {
                         const filePath = path.join(imagePath, file);

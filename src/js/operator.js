@@ -36,10 +36,29 @@ const resetMix = () => {
     getById('default-mix-show').innerText = '0.0s'
 }
 
+const mapAlphaModeToPixi = (mode) => {
+    switch (Number(mode)) {
+        case 0:
+            return 'no-premultiply-alpha'
+        case 2:
+            return 'premultiplied-alpha'
+        case 1:
+        default:
+            return 'premultiply-alpha-on-upload'
+    }
+}
+
 const setAlphaMode = (mode) => {
-    app.renderer.texture.managedTextures.forEach(t => {
-        t.alphaMode = mode
-        t.update()
+    const pixiAlphaMode = mapAlphaModeToPixi(mode)
+    const managedTextures = app.renderer?.texture?.managedTextures
+    if (!managedTextures || typeof managedTextures.forEach !== 'function') return
+    managedTextures.forEach(t => {
+        const textureSource = t?.source || t
+        if (!textureSource) return
+        textureSource.alphaMode = pixiAlphaMode
+        if (typeof textureSource.update === 'function') {
+            textureSource.update()
+        }
     })
 }
 

@@ -16,25 +16,49 @@ let isExporting = false
 let track = {current: 0}
 let superposition = false
 let currentSpeed = 1
+let showAnchorDot = false
 
 // pixi.js app
-const app = new PIXI.Application({
+const app = new PIXI.Application()
+const appReady = app.init({
     resizeTo: scene,
     antialias: true,
     autoDensity: true,
-    transparent: true,
+    backgroundAlpha: 0,
     preserveDrawingBuffer: true,
     resolution: window.devicePixelRatio
-});
-// Open issues:
-// overflow:hidden causes canvas flicker when resizing the window
-// Without it, resizeTo does not behave correctly
-scene.appendChild(app.view);
+}).then(() => {
+    scene.appendChild(app.canvas)
+
+
+const createAnchorDot = () => {
+    const dot = new PIXI.Graphics()
+    dot.circle(0, 0, 5).fill({color: 0xff3b30, alpha: 0.95})
+    dot.stroke({width: 1, color: 0xffffff, alpha: 0.9})
+    dot.visible = showAnchorDot
+    dot.eventMode = 'none'
+    return dot
+}
+
+const ensureAnchorDot = (skeleton) => {
+    if (skeleton.anchorDot) return skeleton.anchorDot
+    const dot = createAnchorDot()
+    skeleton.anchorDot = dot
+    skeleton.addChild(dot)
+    return dot
+}
+
+const setAnchorDotVisible = (visible) => {
+    showAnchorDot = visible
+    app.stage.children.forEach((skeleton) => {
+        const dot = ensureAnchorDot(skeleton)
+        dot.visible = visible
+    })
+}
 
 const reload = () => {
     resetZoom()
     resetSpeed()
-    app.loader.reset()
     app.stage.removeChildren()
     skinList.innerHTML = ''
     slotList.innerHTML = ''
@@ -42,16 +66,30 @@ const reload = () => {
     getById('animation-track0').click()
 }
 
-const loadFiles = (fileUrls) => {
-    app.loader
-        .reset()
-        .add(sortSpineLoadUrls(fileUrls))
-        .load(onLoaded);
+const loadFiles = async (fileUrls) => {
+    await appReady
+    const sortedUrls = sortSpineLoadUrls(fileUrls)
+    const currentBatch = sortedUrls.map(url => `asset:${url}`)
+
+    sortedUrls.forEach((url) => {
+        const alias = `asset:${url}`
+        if (!PIXI.Assets.cache.has(alias)) {
+            PIXI.Assets.add({alias, src: url})
+        }
+    })
+
+    try {
+        await PIXI.Assets.load(currentBatch)
+        onLoaded(currentBatch)
+    } catch (e) {
+        console.error('Asset load failed', e)
+        alert('Invalid or unsupported file (need a .json or .skel with atlas and textures loading correctly).')
+    }
 }
 
 // Spine load handler
-function onLoaded(loader, res) {
-    const {skins, skeletons} = loadSkeletons()
+function onLoaded(assetKeys) {
+    const {skins, skeletons} = loadSkeletons(assetKeys)
     if (!skeletons || skeletons.length === 0) {
         alert('Invalid or unsupported file (need a .json or .skel with atlas and textures loading correctly).')
         return
@@ -149,30 +187,42 @@ function onLoaded(loader, res) {
     })
     if (!superposition) app.stage.removeChildren()
     skeletons.forEach(skeleton => app.stage.addChild(skeleton))
+    // Re-apply the chosen alpha mode after assets are created by Spine/Pixi v8.
+    setAlphaMode(alphaMode)
 
-    function loadSkeletons() {
+    function loadSkeletons(loadedAssetKeys) {
         if (!superposition) availableAnimations = []
         let skins = []
         let skeletons = []
         const speed = +speedInput.value
         const scale = +zoomInput.value / 100
         const defaultMix = +mixInput.value
-        for (const key in res) {
-            const resource = res[key]
-            if (!resource || !resource.spineData || !resource.spineAtlas) continue
+        const assetUrls = loadedAssetKeys.map(assetKeyToUrl)
+        const atlasUrls = assetUrls.filter(url => pathFromLoaderUrl(url).endsWith('.atlas'))
+        for (const key of loadedAssetKeys) {
+            const skeletonUrl = assetKeyToUrl(key)
+            if (!isSpineSkeletonPath(skeletonUrl)) continue
+            const atlasUrl = findAtlasForSkeleton(skeletonUrl, atlasUrls)
+            if (!atlasUrl) continue
             try {
-                resource.spineAtlas.pages.forEach(p => p.baseTexture.alphaMode = alphaMode);
-                const skeleton = new PIXI.spine.Spine(resource.spineData);
-                skeleton.position.set(app.view.clientWidth / 2, app.view.clientHeight / 2)
+                const skeleton = spine.Spine.from({
+                    skeleton: key,
+                    atlas: `asset:${atlasUrl}`
+                })
+                skeleton.position.set(app.canvas.clientWidth / 2, app.canvas.clientHeight / 2)
                 skeleton.scale.x = skeleton.scale.y = scale
                 skeleton.state.timeScale = speed
                 skeleton.state.data.defaultMix = defaultMix
-                skeleton.autoUpdate = true;
-                const skeletonSkins = skeleton.spineData.skins.map(s => s.name)
-                const skeletonAnimations = skeleton.spineData.animations.map(a => {
+                skeleton.autoUpdate = true
+                ensureAnchorDot(skeleton).visible = showAnchorDot
+                const skeletonData = skeleton.skeleton?.data || skeleton.skeletonData
+                const dataSkins = Array.isArray(skeletonData?.skins) ? skeletonData.skins : []
+                const dataAnimations = Array.isArray(skeletonData?.animations) ? skeletonData.animations : []
+                const skeletonSkins = dataSkins.map(s => s.name)
+                const skeletonAnimations = dataAnimations.map(a => {
                     return {
                         name: a.name,
-                        duration: a.duration.toFixed(3)
+                        duration: Number(a.duration || 0).toFixed(3)
                     }
                 })
                 skins = skins.concat(skeletonSkins.filter(s => !skins.includes(s)))
@@ -196,18 +246,29 @@ function onLoaded(loader, res) {
     }
 }
 
+const assetKeyToUrl = (assetKey) => assetKey.replace(/^asset:/, '')
+
+const findAtlasForSkeleton = (skeletonUrl, atlasUrls) => {
+    const normalizedSkeleton = pathFromLoaderUrl(skeletonUrl)
+    const skeletonBase = normalizedSkeleton.replace(/\.(json|skel)$/i, '')
+    return atlasUrls.find((atlasUrl) => {
+        const normalizedAtlas = pathFromLoaderUrl(atlasUrl)
+        return normalizedAtlas === `${skeletonBase}.atlas`
+    }) || atlasUrls[0]
+}
+
 // Decorate Spine skeleton (pan/zoom on view)
 function decorate(skeleton) {
     let isDragging = false;
     let mouseX, mouseY, deltaX, deltaY;
-    app.view.addEventListener('pointerdown', (event) => {
+    app.canvas.addEventListener('pointerdown', (event) => {
         if (event.button === 0) {
             isDragging = true;
             mouseX = event.clientX;
             mouseY = event.clientY;
         }
     });
-    app.view.addEventListener('pointermove', (event) => {
+    app.canvas.addEventListener('pointermove', (event) => {
         if (isDragging) {
             deltaX = event.clientX - mouseX;
             deltaY = event.clientY - mouseY;
@@ -219,14 +280,14 @@ function decorate(skeleton) {
             mouseY = event.clientY;
         }
     });
-    app.view.addEventListener('pointerup', () => {
+    app.canvas.addEventListener('pointerup', () => {
         isDragging = false;
     });
-    app.view.addEventListener('pointerout', () => {
+    app.canvas.addEventListener('pointerout', () => {
         isDragging = false;
     });
 
-    app.view.addEventListener('wheel', (event) => {
+    app.canvas.addEventListener('wheel', (event) => {
         mouseScale(event, skeleton)
 
         function mouseScale(event, entity) {
@@ -304,7 +365,7 @@ async function exportAnimation(options) {
             preload.executeExport({format, framerate, animation, output})
             return
         }
-        let data = app.view.toDataURL('image/png')
+        let data = app.canvas.toDataURL('image/png')
         preload.saveImage({
             index: String(frameIndex++).padStart(5, '0'),
             data

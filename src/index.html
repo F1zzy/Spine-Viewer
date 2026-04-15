@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <title>Spine Viewer</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="assets/js/pixi.min.js"></script>
-    <script src="assets/js/pixi-spine.js"></script>
+    <script src="../node_modules/pixi.js/dist/pixi.min.js"></script>
+    <script src="../node_modules/@esotericsoftware/spine-pixi-v8/dist/iife/spine-pixi-v8.min.js"></script>
     <link rel="stylesheet" href="./css/main.css">
 </head>
 <body>
@@ -76,6 +76,13 @@
         <div class="row">
             <button onclick="resetPosition()" style="width: 70px">Reset position</button>
             <button onclick="pauseAnimation()" style="width: 70px">Pause animation</button>
+        </div>
+        <div class="row">
+            <span>Anchor Dot</span>
+            <span class="i-checkbox-wrap">
+                <input type="checkbox" id="anchor-dot" class="i-checkbox">
+                <label for="anchor-dot" class="i-label"></label>
+            </span>
         </div>
 
         <div class="col">

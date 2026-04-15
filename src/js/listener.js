@@ -1,4 +1,6 @@
 // Event listeners
+(async () => {
+await appReady
 
 // Drag-and-drop files
 getById('main').addEventListener('dragover', (ev) => {
@@ -29,6 +31,11 @@ getById('superposition').addEventListener('click', (ev) => {
     superposition = ev.target.checked
 })
 
+// Anchor dot toggle
+getById('anchor-dot').addEventListener('click', (ev) => {
+    setAnchorDotVisible(ev.target.checked)
+})
+
 // File picker
 fileInput.addEventListener('change', async () => {
     if (fileInput.files.length > 0) {
@@ -50,7 +57,7 @@ let resizeTimer, resizeTimer2;
 const sceneObserver = new ResizeObserver(() => {
     clearTimeout(resizeTimer)
     clearTimeout(resizeTimer2)
-    app.view.style.opacity = '0'
+    app.canvas.style.opacity = '0'
     getById('resolution').style.display = 'block'
     getById('resolution-width').innerText = app.renderer.width
     getById('resolution-height').innerText = app.renderer.height
@@ -58,7 +65,7 @@ const sceneObserver = new ResizeObserver(() => {
         getById('resolution').style.display = 'none'
     }, 1500)
     resizeTimer2 = setTimeout(() => {
-        app.view.style.opacity = '1'
+        app.canvas.style.opacity = '1'
     }, 100)
 });
 sceneObserver.observe(scene);
@@ -130,14 +137,14 @@ document.querySelectorAll('input[name="track"]').forEach(t => {
 // Wheel zoom and drag on canvas
 let isDragging = false;
 let mouseX, mouseY, deltaX, deltaY;
-app.view.addEventListener('pointerdown', (event) => {
+app.canvas.addEventListener('pointerdown', (event) => {
     if (event.button === 0) {
         isDragging = true;
         mouseX = event.clientX;
         mouseY = event.clientY;
     }
 });
-app.view.addEventListener('pointermove', (event) => {
+app.canvas.addEventListener('pointermove', (event) => {
     if (isDragging) {
         deltaX = event.clientX - mouseX;
         deltaY = event.clientY - mouseY;
@@ -151,14 +158,14 @@ app.view.addEventListener('pointermove', (event) => {
         mouseY = event.clientY;
     }
 });
-app.view.addEventListener('pointerup', () => {
+app.canvas.addEventListener('pointerup', () => {
     isDragging = false;
 });
-app.view.addEventListener('pointerout', () => {
+app.canvas.addEventListener('pointerout', () => {
     isDragging = false;
 });
 
-app.view.addEventListener('wheel', (event) => {
+app.canvas.addEventListener('wheel', (event) => {
     event.preventDefault();
     const noEmpty = app.stage.children.length > 0
     const originalScale = noEmpty ? app.stage.children[0].scale.x : +(zoomInput.value / 100);
@@ -185,7 +192,7 @@ scene.addEventListener('contextmenu', (ev) => {
 })
 
 preload.onCopyImage(() => {
-    app.view.toBlob(blob => {
+    app.canvas.toBlob(blob => {
         navigator.clipboard.write([new ClipboardItem({'image/png': blob})])
     })
 })
@@ -211,3 +218,4 @@ preload.onExportWindowClosed(() => {
 })
 
 preload.onDebug(console.log)
+})()
