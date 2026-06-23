@@ -110,10 +110,32 @@ zoomInput.addEventListener('input', () => {
 // Speed slider
 speedInput.addEventListener('input', () => {
     let speed = +speedInput.value
-    setSpeed(speed)
     currentSpeed = speed
+    if (!timelinePaused) {
+        setSpeed(speed)
+    }
     getById('speed-show').innerText = (+speedInput.value).toFixed(2) + 'x'
 })
+
+// Animation timeline scrubber
+const timelineInput = getById('timeline')
+timelineInput.addEventListener('pointerdown', () => {
+    timelineScrubbing = true
+    if (!timelinePaused) setTimelinePaused(true)
+})
+timelineInput.addEventListener('input', () => {
+    const time = +timelineInput.value / 1000
+    seekAnimation(time)
+    updateTimelineDisplay(time, currentAnimationDuration)
+})
+timelineInput.addEventListener('pointerup', () => {
+    timelineScrubbing = false
+})
+timelineInput.addEventListener('pointercancel', () => {
+    timelineScrubbing = false
+})
+
+app.ticker.add(syncTimelineFromState)
 
 // Default mix time slider
 mixInput.addEventListener('input', () => {
@@ -130,6 +152,11 @@ document.querySelectorAll('input[name="track"]').forEach(t => {
         document.querySelectorAll('input[name="animation"]').forEach(a => {
             a.checked = a.value === selected
         })
+        if (selected) {
+            initTimeline(getAnimationDuration(selected))
+        } else {
+            hideTimeline()
+        }
     })
 })
 

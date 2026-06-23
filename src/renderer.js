@@ -17,6 +17,9 @@ let track = {current: 0}
 let superposition = false
 let currentSpeed = 1
 let showAnchorDot = false
+let timelinePaused = false
+let timelineScrubbing = false
+let currentAnimationDuration = 0
 
 // pixi.js app
 const app = new PIXI.Application()
@@ -29,7 +32,8 @@ const appReady = app.init({
     resolution: window.devicePixelRatio
 }).then(() => {
     scene.appendChild(app.canvas)
-
+    app.ticker.maxFPS = 100
+})
 
 const createAnchorDot = () => {
     const dot = new PIXI.Graphics()
@@ -59,6 +63,7 @@ const setAnchorDotVisible = (visible) => {
 const reload = () => {
     resetZoom()
     resetSpeed()
+    hideTimeline()
     app.stage.removeChildren()
     skinList.innerHTML = ''
     slotList.innerHTML = ''
@@ -327,9 +332,11 @@ function toggleAnimation(ev) {
             }
         });
         playAnimation(track.current, ev.target.value, true)
+        initTimeline(getAnimationDuration(ev.target.value))
     } else {
         track[track.current] = null
         clearAnimation(track.current)
+        hideTimeline()
     }
 }
 

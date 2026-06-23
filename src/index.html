@@ -139,6 +139,11 @@
             <div>Width: <span id="resolution-width"></span>px</div>
             <div>Height: <span id="resolution-height"></span>px</div>
         </div>
+        <div id="timeline-bar">
+            <button id="timeline-play" type="button" title="Play/Pause" onclick="toggleTimelinePlayback()">▶</button>
+            <input type="range" id="timeline" value="0" min="0" max="1000" step="1" disabled>
+            <span id="timeline-show">0.00 / 0.00s</span>
+        </div>
     </div>
 </main>
 <script src="js/util.js"></script>

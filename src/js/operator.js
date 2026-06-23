@@ -78,7 +78,7 @@ const resetPosition = () => {
 
 const playAnimation = (track, animation, loop) => {
     app.stage.children.forEach(a => {
-        a.state.timeScale = +speedInput.value
+        a.state.timeScale = timelinePaused ? 0 : +speedInput.value
         a.state.setAnimation(track, animation, loop)
     })
 }
@@ -87,17 +87,91 @@ const clearAnimation = (trackIndex) => {
     app.stage.children.forEach(a => a.state.setEmptyAnimation(trackIndex))
 }
 
+const getAnimationDuration = (name) => {
+    const animation = availableAnimations.find(a => a.name === name)
+    return animation ? +animation.duration : 0
+}
+
+const getTimelineState = () => {
+    const trackIndex = track.current
+    const animationName = track[trackIndex]
+    if (!animationName || app.stage.children.length === 0) return null
+
+    const entry = app.stage.children[0].state.getCurrent(trackIndex)
+    if (!entry?.animation) return null
+
+    const duration = entry.animation.duration
+    const time = duration > 0 ? entry.trackTime % duration : entry.trackTime
+    return {time, duration}
+}
+
+const updateTimelineDisplay = (time, duration) => {
+    getById('timeline-show').innerText = `${time.toFixed(2)} / ${duration.toFixed(2)}s`
+}
+
+const initTimeline = (duration) => {
+    currentAnimationDuration = duration
+    timelinePaused = false
+    timelineScrubbing = false
+    const timelineBar = getById('timeline-bar')
+    const timelineInput = getById('timeline')
+    timelineBar.style.display = 'flex'
+    timelineInput.disabled = false
+    timelineInput.max = Math.max(Math.round(duration * 1000), 1)
+    timelineInput.value = 0
+    getById('timeline-play').innerText = '⏸'
+    updateTimelineDisplay(0, duration)
+    setSpeed(+speedInput.value)
+}
+
+const hideTimeline = () => {
+    getById('timeline-bar').style.display = 'none'
+    getById('timeline').disabled = true
+    currentAnimationDuration = 0
+    timelinePaused = false
+    timelineScrubbing = false
+}
+
+const seekAnimation = (time) => {
+    const trackIndex = track.current
+    app.stage.children.forEach(skeleton => {
+        const entry = skeleton.state.getCurrent(trackIndex)
+        if (entry) entry.trackTime = time
+    })
+}
+
+const setTimelinePaused = (paused) => {
+    timelinePaused = paused
+    getById('timeline-play').innerText = paused ? '▶' : '⏸'
+    setSpeed(paused ? 0 : +speedInput.value)
+}
+
+const toggleTimelinePlayback = () => {
+    setTimelinePaused(!timelinePaused)
+}
+
 const pauseAnimation = () => {
     const speed = speedInput.value
     if (currentSpeed.toString() === speed) {
-        setSpeed(0)
+        setTimelinePaused(true)
         speedInput.value = 0
         getById('speed-show').innerText = '0.00x'
     } else {
-        setSpeed(currentSpeed)
+        currentSpeed = +speed
+        setTimelinePaused(false)
         speedInput.value = currentSpeed
         getById('speed-show').innerText = currentSpeed.toFixed(2) + 'x'
     }
+}
+
+const syncTimelineFromState = () => {
+    if (timelineScrubbing || isExporting || currentAnimationDuration <= 0) return
+    const state = getTimelineState()
+    if (!state) return
+    const timelineInput = getById('timeline')
+    timelineInput.max = Math.max(Math.round(state.duration * 1000), 1)
+    timelineInput.value = Math.round(state.time * 1000)
+    updateTimelineDisplay(state.time, state.duration)
 }
 
 const resetSlots = () => {

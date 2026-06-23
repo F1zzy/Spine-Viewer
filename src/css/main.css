@@ -172,6 +172,48 @@ button {
     position: absolute;
 }
 
+#timeline-bar {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 8;
+    gap: 10px;
+    display: none;
+    color: white;
+    padding: 10px 14px;
+    position: absolute;
+    align-items: center;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+}
+
+#timeline-bar #timeline-play {
+    width: 32px;
+    height: 32px;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 50%;
+    background-color: rgba(115, 139, 112, 0.95);
+    box-shadow: rgba(0, 0, 0, 0.35) 0 2px 6px;
+}
+
+#timeline-bar #timeline-play:hover {
+    background-color: rgba(145, 180, 134, 0.95);
+}
+
+#timeline-bar #timeline {
+    flex: 1;
+    opacity: 1;
+}
+
+#timeline-show {
+    min-width: 95px;
+    font-size: 12px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 #fileInput {
     width: 150px;
     cursor: pointer;
