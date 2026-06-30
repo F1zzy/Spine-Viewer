@@ -64,10 +64,18 @@ const setAlphaMode = (mode) => {
 
 
 const setSkin = (skin) => {
-    app.stage.children.forEach(a => {
+    getStageSpines().forEach(a => {
         if (a.skeleton.data.skins.some(s => s.name === skin)) {
-            a.skeleton.setSkinByName(skin)
-            a.skeleton.setSlotsToSetupPose()
+            if (typeof a.skeleton.setSkin === 'function') {
+                a.skeleton.setSkin(skin)
+            } else {
+                a.skeleton.setSkinByName(skin)
+            }
+            if (typeof a.skeleton.setupPoseSlots === 'function') {
+                a.skeleton.setupPoseSlots()
+            } else if (typeof a.skeleton.setSlotsToSetupPose === 'function') {
+                a.skeleton.setSlotsToSetupPose()
+            }
         }
     })
 }
@@ -101,7 +109,7 @@ const getTimelineState = () => {
     const animationName = track[trackIndex]
     if (!animationName || app.stage.children.length === 0) return null
 
-    const spineInstance = app.stage.children[0]
+    const spineInstance = getStageSpines()[0]
     if (!spineInstance?.state) return null
 
     const entry = getAnimationTrackEntry(spineInstance.state, trackIndex)
@@ -141,10 +149,7 @@ const hideTimeline = () => {
 
 const seekAnimation = (time) => {
     const trackIndex = track.current
-    app.stage.children.forEach(skeleton => {
-        const entry = getAnimationTrackEntry(skeleton.state, trackIndex)
-        if (entry) entry.trackTime = time
-    })
+    getStageSpines().forEach(skeleton => setTrackTime(skeleton.state, trackIndex, time))
 }
 
 const setTimelinePaused = (paused) => {

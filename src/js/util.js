@@ -68,3 +68,10 @@ const getAnimationTrackEntry = (state, trackIndex) => {
     if (typeof state.getCurrent === 'function') return state.getCurrent(trackIndex)
     return state.tracks?.[trackIndex] ?? null
 }
+
+const getStageSpines = () => app.stage.children.filter(child => child?.state && typeof child.update === 'function')
+
+const setTrackTime = (state, trackIndex, time) => {
+    const entry = getAnimationTrackEntry(state, trackIndex)
+    if (entry) entry.trackTime = time
+}

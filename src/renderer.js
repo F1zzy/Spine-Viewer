@@ -350,11 +350,16 @@ async function exportAnimation(options) {
     const speed = Math.max(+speedInput.value || +currentSpeed || 1, 0.01)
     const delta = 1 / framerate
     const frameNumber = Math.max(Math.floor(duration / speed / delta), 1)
+    const spines = getStageSpines()
+    if (spines.length === 0) {
+        preload.sendExportProgress({step: 3, error: 'No spine skeleton loaded to export.'})
+        return
+    }
 
     let frameIndex = 0
     preload.sendExportProgress({step: 0, frameNumber})
 
-    app.stage.children.forEach(a => a.autoUpdate = false)
+    spines.forEach(a => a.autoUpdate = false)
     try {
         await preload.prepareExport(animation)
         for (let i = 1; i < 7; i++) {
@@ -363,13 +368,15 @@ async function exportAnimation(options) {
             }
         }
         playAnimation(0, animation, false, speed)
-        app.stage.children.forEach(a => a.update(0))
+        spines.forEach(skeleton => setTrackTime(skeleton.state, 0, 0))
+        spines.forEach(a => a.update(0))
         app.render()
+        await new Promise(resolve => requestAnimationFrame(resolve))
         await captureFrames()
     } catch (error) {
         console.error('Export failed', error)
         preload.sendExportProgress({step: 3, error: error?.message || 'Export failed'})
-        app.stage.children.forEach(a => a.autoUpdate = true)
+        spines.forEach(a => a.autoUpdate = true)
         if (timelinePaused) {
             setSpeed(0)
         } else {
@@ -380,15 +387,18 @@ async function exportAnimation(options) {
 
     async function captureFrames() {
         while (frameIndex < frameNumber) {
+            app.render()
             const data = app.canvas.toDataURL('image/png')
             await preload.saveImage({
-                index: String(frameIndex++).padStart(5, '0'),
+                index: String(frameIndex).padStart(5, '0'),
                 data
             })
+            frameIndex++
             preload.sendExportProgress({step: 1, frameIndex})
             if (frameIndex >= frameNumber) break
-            app.stage.children.forEach(a => a.update(delta))
+            spines.forEach(a => a.update(delta))
             app.render()
+            await new Promise(resolve => requestAnimationFrame(resolve))
         }
         preload.sendExportProgress({step: 2})
         const result = await preload.executeExport({format, framerate, animation, output})
