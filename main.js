@@ -18,13 +18,21 @@ app.commandLine.appendSwitch('disk-cache-dir', diskCacheDir)
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 
 process.env.CACHE_PATH = path.join(__dirname, 'cache')
-process.env.FFMPEG_PATH = path.join(__dirname, 'ffmpeg', 'ffmpeg.exe');
+
+function resolveBundledFfmpegPath() {
+    const ffmpegDir = path.join(__dirname, 'ffmpeg')
+    const candidates = process.platform === 'win32'
+        ? [path.join(ffmpegDir, 'ffmpeg.exe'), path.join(ffmpegDir, 'ffmpeg')]
+        : [path.join(ffmpegDir, 'ffmpeg'), path.join(ffmpegDir, 'ffmpeg.exe')]
+    return candidates.find(candidate => fs.existsSync(candidate)) || candidates[0]
+}
+
+process.env.FFMPEG_PATH = resolveBundledFfmpegPath()
 
 function resolveFfmpegCommand() {
     if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
         return `"${process.env.FFMPEG_PATH}"`
     }
-    // Fallback to PATH so users can rely on a system-level ffmpeg install.
     return 'ffmpeg'
 }
 
@@ -53,8 +61,12 @@ const createWindow = (log) => {
         win.webContents.send('set-unmaximized-icon')
     })
 
+    win.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+        console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`)
+    })
+
     win.loadFile('./src/index.html').then(() => {
-        // win.openDevTools()
+        win.webContents.openDevTools({mode: 'detach'})
         win.webContents.send('debug', log)
         sub = new BrowserWindow({
             width: 450,
@@ -172,7 +184,13 @@ app.whenReady().then(() => {
     })
     ipcMain.handle('prepare-export', (ev, name) => {
         animation = name.replace(/[\\/:"*?<>|]/g, '_')
-        fs.mkdirSync(path.join(process.env.CACHE_PATH, animation), {recursive: true});
+        const imagePath = path.join(process.env.CACHE_PATH, animation)
+        if (fs.existsSync(imagePath)) {
+            for (const file of fs.readdirSync(imagePath)) {
+                fs.unlinkSync(path.join(imagePath, file))
+            }
+        }
+        fs.mkdirSync(imagePath, {recursive: true})
     })
     ipcMain.handle('save-image', (ev, image) => saveBase64Image(image))
     ipcMain.handle('ffmpeg', (ev, options) => {
@@ -192,23 +210,32 @@ app.whenReady().then(() => {
                 instruction = `${ffmpegCmd} -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -vf "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" "${path.join(outputPath, options.animation + '.gif')}"`
                 break
         }
-        exec(instruction, (error, stdout, stderr) => {
-            const missingLocalBinary = !fs.existsSync(process.env.FFMPEG_PATH)
-            const debugInfo = {stdout, stderr}
-            if (error && missingLocalBinary) {
-                debugInfo.hint = `Local ffmpeg missing at ${process.env.FFMPEG_PATH}. Add ffmpeg.exe there or install ffmpeg globally and ensure it is on PATH.`
-            }
-            win.webContents.send('debug', debugInfo)
-            fs.readdir(imagePath, (err, files) => {
-                    files.forEach(file => {
-                        const filePath = path.join(imagePath, file);
-                        fs.unlinkSync(filePath)
-                    })
-                    fs.rmdirSync(imagePath)
+        return new Promise((resolve) => {
+            exec(instruction, (error, stdout, stderr) => {
+                const missingLocalBinary = !fs.existsSync(process.env.FFMPEG_PATH)
+                const debugInfo = {stdout, stderr}
+                if (error) {
+                    debugInfo.error = error.message
+                    if (missingLocalBinary) {
+                        debugInfo.hint = `Local ffmpeg missing at ${process.env.FFMPEG_PATH}. Add ffmpeg to the ffmpeg folder or install ffmpeg globally and ensure it is on PATH.`
+                    }
                 }
-            )
-            sub.webContents.send('export-complete')
-            win.webContents.send('export-complete')
+                win.webContents.send('debug', debugInfo)
+                try {
+                    if (fs.existsSync(imagePath)) {
+                        for (const file of fs.readdirSync(imagePath)) {
+                            fs.unlinkSync(path.join(imagePath, file))
+                        }
+                        fs.rmdirSync(imagePath)
+                    }
+                } catch (cleanupError) {
+                    debugInfo.cleanupError = cleanupError.message
+                }
+                const result = {success: !error, error: error ? (stderr || error.message) : undefined}
+                sub.webContents.send('export-complete', result)
+                win.webContents.send('export-complete', result)
+                resolve(result)
+            })
         })
     })
 

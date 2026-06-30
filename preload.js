@@ -23,5 +23,5 @@ contextBridge.exposeInMainWorld('preload', {
     onReceiveExportOptions: (callback) => ipcRenderer.on('receive-export-options', (_event, options) => callback(options)),
     prepareExport: (id) => ipcRenderer.invoke('prepare-export', id),
     executeExport: (options) => ipcRenderer.invoke('ffmpeg', options),
-    onExportComplete: (callback) => ipcRenderer.on('export-complete', (_event) => callback())
+    onExportComplete: (callback) => ipcRenderer.on('export-complete', (_event, result) => callback(result))
 })

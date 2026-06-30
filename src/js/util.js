@@ -50,3 +50,21 @@ const getUrlsByPaths = async (paths) => {
     return await Promise.all(filePromises)
 }
 
+const getSlotSetupAlpha = (slot) => {
+    const setupColor = slot.data.setupPose?.color ?? slot.data.color
+    return setupColor?.a ?? 1
+}
+
+const getSlotColor = (slot) => slot.pose?.color ?? slot.color
+
+const setSlotAlpha = (slot, alpha) => {
+    const color = getSlotColor(slot)
+    if (color) color.a = alpha
+}
+
+const getAnimationTrackEntry = (state, trackIndex) => {
+    if (!state) return null
+    if (typeof state.getTrack === 'function') return state.getTrack(trackIndex)
+    if (typeof state.getCurrent === 'function') return state.getCurrent(trackIndex)
+    return state.tracks?.[trackIndex] ?? null
+}

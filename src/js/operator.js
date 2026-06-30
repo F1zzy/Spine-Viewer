@@ -76,9 +76,13 @@ const resetPosition = () => {
     app.stage.children.forEach(a => a.position.set(scene.clientWidth / 2, scene.clientHeight / 2))
 }
 
-const playAnimation = (track, animation, loop) => {
+const playAnimation = (track, animation, loop, timeScaleOverride) => {
     app.stage.children.forEach(a => {
-        a.state.timeScale = timelinePaused ? 0 : +speedInput.value
+        if (timeScaleOverride !== undefined) {
+            a.state.timeScale = timeScaleOverride
+        } else {
+            a.state.timeScale = timelinePaused ? 0 : +speedInput.value
+        }
         a.state.setAnimation(track, animation, loop)
     })
 }
@@ -97,7 +101,10 @@ const getTimelineState = () => {
     const animationName = track[trackIndex]
     if (!animationName || app.stage.children.length === 0) return null
 
-    const entry = app.stage.children[0].state.getCurrent(trackIndex)
+    const spineInstance = app.stage.children[0]
+    if (!spineInstance?.state) return null
+
+    const entry = getAnimationTrackEntry(spineInstance.state, trackIndex)
     if (!entry?.animation) return null
 
     const duration = entry.animation.duration
@@ -135,7 +142,7 @@ const hideTimeline = () => {
 const seekAnimation = (time) => {
     const trackIndex = track.current
     app.stage.children.forEach(skeleton => {
-        const entry = skeleton.state.getCurrent(trackIndex)
+        const entry = getAnimationTrackEntry(skeleton.state, trackIndex)
         if (entry) entry.trackTime = time
     })
 }
@@ -177,8 +184,9 @@ const syncTimelineFromState = () => {
 const resetSlots = () => {
     // app.stage.children.forEach(a => a.skeleton.setSlotsToSetupPose())
     slots.forEach(sd => {
-        sd.slot.color.a = sd.slot.data.color.a
-        sd.inputTag.value = (sd.slot.data.color.a * 100).toFixed()
-        sd.valueTag.innerText = sd.slot.data.color.a.toFixed(2)
+        const alpha = getSlotSetupAlpha(sd.slot)
+        setSlotAlpha(sd.slot, alpha)
+        sd.inputTag.value = (alpha * 100).toFixed()
+        sd.valueTag.innerText = alpha.toFixed(2)
     })
 }

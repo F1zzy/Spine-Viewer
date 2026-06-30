@@ -29,9 +29,9 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
-    "@esotericsoftware/spine-pixi-v8": "^4.2.110",
+    "@esotericsoftware/spine-pixi-v8": "4.3.9",
     "electron-squirrel-startup": "^1.0.0",
-    "pixi.js": "^8.18.1"
+    "pixi.js": "8.13.0"
   },
   "build": {
     "appId": "spine.viewer",

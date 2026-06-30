@@ -236,8 +236,13 @@ preload.onUnMaximize(() => {
     getById('maximize-icon').innerText = '▢'
 })
 
-preload.onExportComplete(() => {
+preload.onExportComplete((result) => {
     app.stage.children.forEach(a => a.autoUpdate = true)
+    if (timelinePaused) {
+        setSpeed(0)
+    } else {
+        setSpeed(+speedInput.value)
+    }
 })
 
 preload.onExportWindowClosed(() => {

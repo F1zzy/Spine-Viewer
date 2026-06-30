@@ -163,13 +163,13 @@ function onLoaded(assetKeys) {
             input.setAttribute('id', `${slotIndex++}-${slot.data.name}`)
             input.setAttribute('type', 'range')
             input.setAttribute('name', 'slot')
-            input.setAttribute('value', (slot.data.color.a * 100).toFixed())
+            input.setAttribute('value', (getSlotSetupAlpha(slot) * 100).toFixed())
             input.setAttribute('min', '0')
             input.setAttribute('max', '100')
             input.setAttribute('step', '1')
             title.innerText = slot.data.name
             label.innerText = 'Α:'
-            value.innerText = slot.data.color.a.toFixed(2)
+            value.innerText = getSlotSetupAlpha(slot).toFixed(2)
             div.append(label)
             div.append(input)
             div.append(value)
@@ -177,7 +177,7 @@ function onLoaded(assetKeys) {
             li.append(div)
             input.addEventListener('input', () => {
                 const alpha = +input.value / 100
-                slot.color.a = alpha
+                setSlotAlpha(slot, alpha)
                 value.innerText = alpha.toFixed(2)
             })
             slotList.append(li)
@@ -210,7 +210,7 @@ function onLoaded(assetKeys) {
             const atlasUrl = findAtlasForSkeleton(skeletonUrl, atlasUrls)
             if (!atlasUrl) continue
             try {
-                const skeleton = spine.Spine.from({
+                const skeleton = new spine.Spine({
                     skeleton: key,
                     atlas: `asset:${atlasUrl}`
                 })
@@ -347,40 +347,53 @@ function openExportWindow() {
 
 async function exportAnimation(options) {
     const {format, framerate, animation, output, duration} = options
-    const speed = +speedInput.value
+    const speed = Math.max(+speedInput.value || +currentSpeed || 1, 0.01)
     const delta = 1 / framerate
-    const frameNumber = Math.floor(duration / speed / delta)
+    const frameNumber = Math.max(Math.floor(duration / speed / delta), 1)
 
     let frameIndex = 0
     preload.sendExportProgress({step: 0, frameNumber})
 
     app.stage.children.forEach(a => a.autoUpdate = false)
-    preload.prepareExport(animation).then(() => {
+    try {
+        await preload.prepareExport(animation)
         for (let i = 1; i < 7; i++) {
             if (track[i]) {
-                playAnimation(i, track[i], true)
+                playAnimation(i, track[i], true, speed)
             }
         }
-        playAnimation(0, animation, false)
+        playAnimation(0, animation, false, speed)
         app.stage.children.forEach(a => a.update(0))
-        setTimeout(animate, 100)
-    })
+        app.render()
+        await captureFrames()
+    } catch (error) {
+        console.error('Export failed', error)
+        preload.sendExportProgress({step: 3, error: error?.message || 'Export failed'})
+        app.stage.children.forEach(a => a.autoUpdate = true)
+        if (timelinePaused) {
+            setSpeed(0)
+        } else {
+            setSpeed(+speedInput.value)
+        }
+        return
+    }
 
-    async function animate() {
-        if (frameIndex >= frameNumber) {
-            preload.sendExportProgress({step: 2})
-            preload.executeExport({format, framerate, animation, output})
+    async function captureFrames() {
+        while (frameIndex < frameNumber) {
+            const data = app.canvas.toDataURL('image/png')
+            await preload.saveImage({
+                index: String(frameIndex++).padStart(5, '0'),
+                data
+            })
+            preload.sendExportProgress({step: 1, frameIndex})
+            if (frameIndex >= frameNumber) break
+            app.stage.children.forEach(a => a.update(delta))
+            app.render()
+        }
+        preload.sendExportProgress({step: 2})
+        const result = await preload.executeExport({format, framerate, animation, output})
+        if (result?.success === false) {
             return
         }
-        let data = app.canvas.toDataURL('image/png')
-        preload.saveImage({
-            index: String(frameIndex++).padStart(5, '0'),
-            data
-        }).then(() => {
-            preload.sendExportProgress({step: 1, frameIndex})
-            app.stage.children.forEach(a => a.update(delta))
-            animate()
-        })
-
     }
 }

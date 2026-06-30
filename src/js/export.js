@@ -61,9 +61,14 @@ preload.onReceiveExportAnimations((animations) => {
 })
 
 // Export finished
-preload.onExportComplete(() => {
+preload.onExportComplete((result) => {
     getById('export-button').disabled = false
     getById('hide-export-box-button').disabled = false
+    if (result?.success === false) {
+        progressShow.innerText = 'Failed'
+        alert(result?.error || 'Export failed. Ensure ffmpeg is installed and the output folder is writable.')
+        return
+    }
     progress.value = progress.getAttribute('max')
     progressShow.innerText = 'Done'
 })
@@ -81,6 +86,12 @@ preload.onSetExportProgress((data) => {
             break
         case 2:
             progressShow.innerText = 'Encoding…'
+            break
+        case 3:
+            getById('export-button').disabled = false
+            getById('hide-export-box-button').disabled = false
+            progressShow.innerText = 'Failed'
+            alert(data.error || 'Export failed. Ensure ffmpeg is installed and the output folder is writable.')
             break
     }
 })
