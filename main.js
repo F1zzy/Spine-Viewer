@@ -2,7 +2,7 @@ const {app, BrowserWindow, ipcMain, Menu, MenuItem, dialog} = require('electron/
 const path = require('path')
 const http = require("http");
 const fs = require("fs");
-const {exec} = require('child_process')
+const {exec, execSync} = require('child_process')
 
 app.commandLine.appendSwitch('charset', 'utf-8');
 
@@ -24,10 +24,36 @@ function resolveBundledFfmpegPath() {
     const candidates = process.platform === 'win32'
         ? [path.join(ffmpegDir, 'ffmpeg.exe'), path.join(ffmpegDir, 'ffmpeg')]
         : [path.join(ffmpegDir, 'ffmpeg'), path.join(ffmpegDir, 'ffmpeg.exe')]
-    return candidates.find(candidate => fs.existsSync(candidate)) || candidates[0]
+    return candidates.find(candidate => fs.existsSync(candidate)) || null
 }
 
-process.env.FFMPEG_PATH = resolveBundledFfmpegPath()
+function resolveInstalledFfmpegPath() {
+    try {
+        const installer = require('@ffmpeg-installer/ffmpeg')
+        if (installer?.path && fs.existsSync(installer.path)) {
+            return installer.path
+        }
+    } catch (_) { /* optional dependency */ }
+
+    const commonPaths = [
+        '/opt/homebrew/bin/ffmpeg',
+        '/usr/local/bin/ffmpeg',
+        '/usr/bin/ffmpeg'
+    ]
+    for (const candidate of commonPaths) {
+        if (fs.existsSync(candidate)) return candidate
+    }
+
+    try {
+        const shell = process.env.SHELL || '/bin/bash'
+        const result = execSync(`${shell} -lc "command -v ffmpeg"`, {encoding: 'utf8'}).trim()
+        if (result && fs.existsSync(result)) return result
+    } catch (_) { /* not on PATH */ }
+
+    return null
+}
+
+process.env.FFMPEG_PATH = resolveBundledFfmpegPath() || resolveInstalledFfmpegPath() || ''
 
 function resolveFfmpegCommand() {
     if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
@@ -153,8 +179,10 @@ app.whenReady().then(() => {
     if (!fs.existsSync(process.env.CACHE_PATH)) {
         fs.mkdirSync(process.env.CACHE_PATH, {recursive: true});
     }
-    if (!fs.existsSync(process.env.FFMPEG_PATH)) {
-        log.error = 'ffmpeg not found!'
+    if (!process.env.FFMPEG_PATH || !fs.existsSync(process.env.FFMPEG_PATH)) {
+        log.error = 'ffmpeg not found! Install ffmpeg or add it to the ffmpeg folder.'
+    } else {
+        log.ffmpeg = process.env.FFMPEG_PATH
     }
 
     createWindow(log)
@@ -175,12 +203,14 @@ app.whenReady().then(() => {
     })
 
     // Export (GIF/APNG/MP4 via ffmpeg)
-    ipcMain.handle('select-export-path', () => {
-        const exportPath = dialog.showOpenDialogSync(win, {
+    ipcMain.handle('select-export-path', async (ev) => {
+        const senderWindow = BrowserWindow.fromWebContents(ev.sender)
+        const dialogWindow = senderWindow || sub || win
+        const result = await dialog.showOpenDialog(dialogWindow, {
             title: 'Output folder',
-            properties: ['openDirectory']
+            properties: ['openDirectory', 'createDirectory']
         })
-        return exportPath ? exportPath[0] : ''
+        return result.canceled ? '' : (result.filePaths[0] ?? '')
     })
     ipcMain.handle('prepare-export', (ev, name) => {
         animation = name.replace(/[\\/:"*?<>|]/g, '_')
@@ -197,17 +227,29 @@ app.whenReady().then(() => {
         const imagePath = path.join(process.env.CACHE_PATH, animation)
         const outputPath = options.output
         const ffmpegCmd = resolveFfmpegCommand()
+        const safeAnimationName = options.animation.replace(/[\\/:"*?<>|]/g, '_')
+        if (!process.env.FFMPEG_PATH || !fs.existsSync(process.env.FFMPEG_PATH)) {
+            const result = {
+                success: false,
+                error: 'ffmpeg not found. Install ffmpeg globally or add a binary to the ffmpeg folder.'
+            }
+            sub?.webContents.send('export-complete', result)
+            win?.webContents.send('export-complete', result)
+            return result
+        }
+        const inputPattern = path.join(imagePath, '%05d.png')
+        const outputFile = path.join(outputPath, `${safeAnimationName}.${options.format === 'MP4' ? 'mp4' : options.format === 'APNG' ? 'apng' : 'gif'}`)
         let instruction;
         switch (options.format) {
             case 'APNG':
-                instruction = `${ffmpegCmd} -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -vf "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -plays 0 "${path.join(outputPath, options.animation + '.apng')}"`
+                instruction = `${ffmpegCmd} -y -framerate ${options.framerate} -i "${inputPattern}" -vf "split[s0][s1];[s0]palettegen=reserve_transparent=1[p];[s1][p]paletteuse=alpha_threshold=128" -plays 0 "${outputFile}"`
                 break
             case 'MP4':
-                instruction = `${ffmpegCmd} -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -crf 17 "${path.join(outputPath, options.animation + '.mp4')}"`
+                instruction = `${ffmpegCmd} -y -framerate ${options.framerate} -i "${inputPattern}" -vf "format=yuv420p" -crf 17 -pix_fmt yuv420p "${outputFile}"`
                 break
             case 'GIF':
             default:
-                instruction = `${ffmpegCmd} -y -r ${options.framerate} -i "${path.join(imagePath, '%05d.png')}" -vf "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" "${path.join(outputPath, options.animation + '.gif')}"`
+                instruction = `${ffmpegCmd} -y -framerate ${options.framerate} -i "${inputPattern}" -vf "split[s0][s1];[s0]palettegen=reserve_transparent=1[p];[s1][p]paletteuse=alpha_threshold=128" "${outputFile}"`
                 break
         }
         return new Promise((resolve) => {

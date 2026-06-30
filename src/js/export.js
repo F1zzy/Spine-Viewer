@@ -30,7 +30,15 @@ const getExportOptions = () => {
 }
 
 const selectExportPath = async () => {
-    getById('export-path').value = await preload.selectExportPath()
+    try {
+        const selected = await preload.selectExportPath()
+        if (selected) {
+            getById('export-path').value = selected
+        }
+    } catch (error) {
+        console.error('Failed to select export path', error)
+        alert('Could not open the folder picker.')
+    }
 }
 
 const fillExportAnimations = (animations) => {
