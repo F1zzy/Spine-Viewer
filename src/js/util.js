@@ -71,6 +71,25 @@ const getAnimationTrackEntry = (state, trackIndex) => {
 
 const getStageSpines = () => app.stage.children.filter(child => child?.state && typeof child.update === 'function')
 
+const forEachSpine = (callback) => getStageSpines().forEach(callback)
+
+const getSkeletonData = (spineInstance) => spineInstance?.skeleton?.data ?? spineInstance?.skeletonData ?? null
+
+const setSkeletonSkin = (skeleton, skinName) => {
+    if (!skeleton?.data?.skins?.some(s => s.name === skinName)) return false
+    if (typeof skeleton.setSkin === 'function') {
+        skeleton.setSkin(skinName)
+    } else {
+        skeleton.setSkinByName(skinName)
+    }
+    if (typeof skeleton.setupPoseSlots === 'function') {
+        skeleton.setupPoseSlots()
+    } else if (typeof skeleton.setSlotsToSetupPose === 'function') {
+        skeleton.setSlotsToSetupPose()
+    }
+    return true
+}
+
 const setTrackTime = (state, trackIndex, time) => {
     const entry = getAnimationTrackEntry(state, trackIndex)
     if (entry) entry.trackTime = time

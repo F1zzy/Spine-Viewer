@@ -54,7 +54,7 @@ const ensureAnchorDot = (skeleton) => {
 
 const setAnchorDotVisible = (visible) => {
     showAnchorDot = visible
-    app.stage.children.forEach((skeleton) => {
+    forEachSpine((skeleton) => {
         const dot = ensureAnchorDot(skeleton)
         dot.visible = visible
     })
@@ -220,7 +220,7 @@ function onLoaded(assetKeys) {
                 skeleton.state.data.defaultMix = defaultMix
                 skeleton.autoUpdate = true
                 ensureAnchorDot(skeleton).visible = showAnchorDot
-                const skeletonData = skeleton.skeleton?.data || skeleton.skeletonData
+                const skeletonData = getSkeletonData(skeleton)
                 const dataSkins = Array.isArray(skeletonData?.skins) ? skeletonData.skins : []
                 const dataAnimations = Array.isArray(skeletonData?.animations) ? skeletonData.animations : []
                 const skeletonSkins = dataSkins.map(s => s.name)

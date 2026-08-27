@@ -176,7 +176,7 @@ app.canvas.addEventListener('pointermove', (event) => {
         deltaX = event.clientX - mouseX;
         deltaY = event.clientY - mouseY;
 
-        app.stage.children.forEach(skeleton => {
+        forEachSpine(skeleton => {
             skeleton.x += deltaX;
             skeleton.y += deltaY;
         })
@@ -194,14 +194,15 @@ app.canvas.addEventListener('pointerout', () => {
 
 app.canvas.addEventListener('wheel', (event) => {
     event.preventDefault();
-    const noEmpty = app.stage.children.length > 0
-    const originalScale = noEmpty ? app.stage.children[0].scale.x : +(zoomInput.value / 100);
+    const spines = getStageSpines()
+    const noEmpty = spines.length > 0
+    const originalScale = noEmpty ? spines[0].scale.x : +(zoomInput.value / 100);
     const scaleFactor = event.deltaY > 0 ? 0.95 : 1.05; // scale by wheel direction
     const minScale = 0.1, maxScale = 5;
     const newScale = Math.min(Math.max(originalScale * scaleFactor, minScale), maxScale)
 
     if (noEmpty) {
-        app.stage.children.forEach(skeleton => {
+        forEachSpine(skeleton => {
             skeleton.scale.x = skeleton.scale.y = newScale
             skeleton.x -= (event.offsetX - skeleton.x) * (skeleton.scale.x / originalScale - 1);
             skeleton.y -= (event.offsetY - skeleton.y) * (skeleton.scale.y / originalScale - 1);
@@ -237,7 +238,7 @@ preload.onUnMaximize(() => {
 })
 
 preload.onExportComplete((result) => {
-    app.stage.children.forEach(a => a.autoUpdate = true)
+    forEachSpine(spine => spine.autoUpdate = true)
     if (timelinePaused) {
         setSpeed(0)
     } else {

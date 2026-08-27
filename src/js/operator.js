@@ -1,7 +1,7 @@
 // Spine control helpers
 const setZoom = (scale) => {
-    app.stage.children.forEach(a => {
-        a.scale.x = a.scale.y = scale
+    forEachSpine(spine => {
+        spine.scale.x = spine.scale.y = scale
     })
 }
 
@@ -12,8 +12,8 @@ const resetZoom = () => {
 }
 
 const setSpeed = (speed) => {
-    app.stage.children.forEach(a => {
-        a.state.timeScale = speed
+    forEachSpine(spine => {
+        spine.state.timeScale = speed
     })
 }
 
@@ -25,8 +25,8 @@ const resetSpeed = () => {
 
 
 const setMix = (mix) => {
-    app.stage.children.forEach(a => {
-        a.state.data.defaultMix = mix
+    forEachSpine(spine => {
+        spine.state.data.defaultMix = mix
     })
 }
 
@@ -64,39 +64,26 @@ const setAlphaMode = (mode) => {
 
 
 const setSkin = (skin) => {
-    getStageSpines().forEach(a => {
-        if (a.skeleton.data.skins.some(s => s.name === skin)) {
-            if (typeof a.skeleton.setSkin === 'function') {
-                a.skeleton.setSkin(skin)
-            } else {
-                a.skeleton.setSkinByName(skin)
-            }
-            if (typeof a.skeleton.setupPoseSlots === 'function') {
-                a.skeleton.setupPoseSlots()
-            } else if (typeof a.skeleton.setSlotsToSetupPose === 'function') {
-                a.skeleton.setSlotsToSetupPose()
-            }
-        }
-    })
+    forEachSpine(spine => setSkeletonSkin(spine.skeleton, skin))
 }
 
 const resetPosition = () => {
-    app.stage.children.forEach(a => a.position.set(scene.clientWidth / 2, scene.clientHeight / 2))
+    forEachSpine(spine => spine.position.set(scene.clientWidth / 2, scene.clientHeight / 2))
 }
 
 const playAnimation = (track, animation, loop, timeScaleOverride) => {
-    app.stage.children.forEach(a => {
+    forEachSpine(spine => {
         if (timeScaleOverride !== undefined) {
-            a.state.timeScale = timeScaleOverride
+            spine.state.timeScale = timeScaleOverride
         } else {
-            a.state.timeScale = timelinePaused ? 0 : +speedInput.value
+            spine.state.timeScale = timelinePaused ? 0 : +speedInput.value
         }
-        a.state.setAnimation(track, animation, loop)
+        spine.state.setAnimation(track, animation, loop)
     })
 }
 
 const clearAnimation = (trackIndex) => {
-    app.stage.children.forEach(a => a.state.setEmptyAnimation(trackIndex))
+    forEachSpine(spine => spine.state.setEmptyAnimation(trackIndex))
 }
 
 const getAnimationDuration = (name) => {
@@ -107,7 +94,7 @@ const getAnimationDuration = (name) => {
 const getTimelineState = () => {
     const trackIndex = track.current
     const animationName = track[trackIndex]
-    if (!animationName || app.stage.children.length === 0) return null
+    if (!animationName) return null
 
     const spineInstance = getStageSpines()[0]
     if (!spineInstance?.state) return null
@@ -149,7 +136,7 @@ const hideTimeline = () => {
 
 const seekAnimation = (time) => {
     const trackIndex = track.current
-    getStageSpines().forEach(skeleton => setTrackTime(skeleton.state, trackIndex, time))
+    forEachSpine(spine => setTrackTime(spine.state, trackIndex, time))
 }
 
 const setTimelinePaused = (paused) => {
@@ -187,7 +174,6 @@ const syncTimelineFromState = () => {
 }
 
 const resetSlots = () => {
-    // app.stage.children.forEach(a => a.skeleton.setSlotsToSetupPose())
     slots.forEach(sd => {
         const alpha = getSlotSetupAlpha(sd.slot)
         setSlotAlpha(sd.slot, alpha)
