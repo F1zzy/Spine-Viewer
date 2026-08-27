@@ -4,6 +4,7 @@ const {contextBridge, ipcRenderer} = require('electron')
 contextBridge.exposeInMainWorld('preload', {
     onDebug: (callback) => ipcRenderer.on('debug', (_event, log) => callback(log)),
     port: () => ipcRenderer.invoke('port'),
+    expandSpineAssetPaths: (paths) => ipcRenderer.invoke('expand-spine-asset-paths', paths),
     minimize: () => ipcRenderer.send('minimize'),
     toggleMaximize: () => ipcRenderer.send('toggle-maximize'),
     close: () => ipcRenderer.send('close'),

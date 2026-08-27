@@ -1,4 +1,4 @@
-const {app, BrowserWindow, ipcMain, Menu, MenuItem, dialog} = require('electron/main')
+const {app, BrowserWindow, ipcMain, Menu, MenuItem, dialog, globalShortcut} = require('electron/main')
 const path = require('path')
 const http = require("http");
 const fs = require("fs");
@@ -82,6 +82,19 @@ function resolveFfmpegCommand() {
 
 let win, sub;
 let animation;
+
+function toggleDevToolsForFocusedWindow() {
+    const target = BrowserWindow.getFocusedWindow() || win
+    if (!target?.webContents) return
+    target.webContents.toggleDevTools()
+}
+
+function registerDevToolsShortcuts() {
+    const shortcuts = ['F12', 'CommandOrControl+Shift+I', 'CommandOrControl+Alt+I']
+    for (const shortcut of shortcuts) {
+        globalShortcut.register(shortcut, toggleDevToolsForFocusedWindow)
+    }
+}
 
 const createWindow = (log) => {
     win = new BrowserWindow({
@@ -199,6 +212,7 @@ app.whenReady().then(() => {
     }
 
     createWindow(log)
+    registerDevToolsShortcuts()
 
     ipcMain.handle('port', () => server.address().port)
     ipcMain.on('minimize', () => win.minimize())
@@ -216,6 +230,7 @@ app.whenReady().then(() => {
     })
 
     // Export (GIF/APNG/MP4 via ffmpeg)
+    ipcMain.handle('expand-spine-asset-paths', (ev, paths) => expandSpineAssetPaths(paths))
     ipcMain.handle('select-export-path', async (ev) => {
         const senderWindow = BrowserWindow.fromWebContents(ev.sender)
         const dialogWindow = senderWindow || sub || win
@@ -307,6 +322,10 @@ app.on('window-all-closed', () => {
     }
 })
 
+app.on('will-quit', () => {
+    globalShortcut.unregisterAll()
+})
+
 
 // Save a base64-encoded frame to disk
 function saveBase64Image(image) {
@@ -316,4 +335,228 @@ function saveBase64Image(image) {
     fs.writeFileSync(path.join(process.env.CACHE_PATH, animation, `${image.index}.png`), imageBuffer)
 
     return true
+}
+
+function expandSpineAssetPaths(paths) {
+    const expanded = new Set(Array.isArray(paths) ? paths : [])
+    const warnings = []
+    for (const filePath of paths || []) {
+        if (!/\.(json|skel)$/i.test(filePath)) continue
+        const dir = path.dirname(filePath)
+        const baseName = path.basename(filePath).replace(/\.(json|skel)$/i, '')
+        const atlasPath = path.join(dir, `${baseName}.atlas`)
+        if (fs.existsSync(atlasPath)) {
+            const { patchedPath, addedRegions, unresolvedRegions } = patchSpineAtlasIfNeeded(filePath, atlasPath)
+            expanded.delete(atlasPath)
+            expanded.add(patchedPath)
+            if (addedRegions.length > 0) {
+                warnings.push({
+                    skeleton: path.basename(filePath),
+                    addedRegions,
+                    unresolvedRegions
+                })
+            }
+            try {
+                const atlasText = fs.readFileSync(patchedPath, 'utf8')
+                const textureNames = new Set()
+                for (const line of atlasText.split('\n')) {
+                    const trimmed = line.trim()
+                    if (!trimmed || trimmed.includes(':')) continue
+                    if (/\.(webp|png|jpe?g)$/i.test(trimmed)) textureNames.add(trimmed)
+                }
+                const textureDir = path.dirname(patchedPath) === path.dirname(atlasPath) ? dir : path.dirname(patchedPath)
+                for (const textureName of textureNames) {
+                    const texturePath = path.join(textureDir, textureName)
+                    if (fs.existsSync(texturePath)) {
+                        expanded.add(texturePath)
+                        // Drop duplicate texture from the source folder when using a patched atlas copy.
+                        expanded.delete(path.join(dir, textureName))
+                    }
+                }
+            } catch (_) { /* ignore atlas read errors */ }
+        }
+        for (const ext of ['webp', 'png', 'jpg', 'jpeg']) {
+            const texturePath = path.join(dir, `${baseName}.${ext}`)
+            if (fs.existsSync(texturePath)) expanded.add(texturePath)
+        }
+    }
+    return { paths: [...expanded], warnings }
+}
+
+function collectJsonAttachmentPaths(json) {
+    const names = new Set()
+    const walk = (obj) => {
+        if (!obj || typeof obj !== 'object') return
+        for (const [key, value] of Object.entries(obj)) {
+            if (value && typeof value === 'object') {
+                if ('width' in value && 'height' in value) {
+                    names.add(value.path || key)
+                }
+                walk(value)
+            }
+        }
+    }
+    if (Array.isArray(json.skins)) {
+        for (const skin of json.skins) walk(skin.attachments)
+    }
+    return names
+}
+
+function parseAtlasRegionNames(atlasText) {
+    const regions = new Set()
+    let onPage = false
+    for (const line of atlasText.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        if (/\.(webp|png|jpe?g)$/i.test(trimmed)) {
+            onPage = true
+            continue
+        }
+        if (!onPage || trimmed.includes(':')) continue
+        regions.add(trimmed)
+    }
+    return regions
+}
+
+function getAtlasRegionBlock(atlasText, regionName) {
+    const lines = atlasText.split('\n')
+    const start = lines.findIndex(line => line.trim() === regionName)
+    if (start === -1) return null
+    const block = [lines[start]]
+    for (let i = start + 1; i < lines.length; i++) {
+        const trimmed = lines[i].trim()
+        if (!trimmed) break
+        if (!trimmed.includes(':') && !/\.(webp|png|jpe?g)$/i.test(trimmed)) break
+        block.push(lines[i])
+    }
+    return block.join('\n')
+}
+
+function findAtlasFallbackRegion(missingRegion, atlasRegions) {
+    if (atlasRegions.has(missingRegion)) return missingRegion
+    const lower = missingRegion.toLowerCase()
+    for (const region of atlasRegions) {
+        if (region.toLowerCase() === lower) return region
+    }
+    const baseName = missingRegion.includes('/')
+        ? missingRegion.slice(missingRegion.lastIndexOf('/') + 1)
+        : missingRegion
+    const baseLower = baseName.toLowerCase()
+    if (baseName !== missingRegion && atlasRegions.has(baseName)) return baseName
+    if (missingRegion.startsWith('png/')) {
+        const stripped = missingRegion.slice(4)
+        if (atlasRegions.has(stripped)) return stripped
+    } else if (atlasRegions.has(`png/${missingRegion}`)) {
+        return `png/${missingRegion}`
+    }
+    const without2dPrefix = baseName.replace(/^2d-/i, '')
+    if (without2dPrefix !== baseName && atlasRegions.has(without2dPrefix)) return without2dPrefix
+    const withoutTrailingDigits = baseName.replace(/\d+$/g, '')
+    if (withoutTrailingDigits !== baseName && atlasRegions.has(withoutTrailingDigits)) return withoutTrailingDigits
+    if (/^WIN_(blue|green|red)$/i.test(baseName) && atlasRegions.has('win_title')) {
+        return 'win_title'
+    }
+    if (/coin/i.test(baseName) && atlasRegions.has('gem')) return 'gem'
+    if (/lock/i.test(baseName)) {
+        for (const candidate of ['chest_bottm', 'feature_chest', 'bottom']) {
+            if (atlasRegions.has(candidate)) return candidate
+        }
+    }
+    const simplified = baseName.replace(/(_copy|\d+)$/i, '')
+    if (simplified !== baseName && atlasRegions.has(simplified)) return simplified
+    if (atlasRegions.has('square')) return 'square'
+    if (atlasRegions.has('gem')) return 'gem'
+    let bestMatch = null
+    let bestScore = 0
+    for (const region of atlasRegions) {
+        const regionLower = region.toLowerCase()
+        if (baseLower === regionLower) return region
+        if (baseLower.includes(regionLower) || regionLower.includes(baseLower)) {
+            const score = Math.min(regionLower.length, baseLower.length)
+            if (score >= 4 && score > bestScore) {
+                bestScore = score
+                bestMatch = region
+            }
+        }
+    }
+    return bestMatch
+}
+
+function findPlaceholderAtlasRegion(atlasText, atlasRegions) {
+    for (const regionName of atlasRegions) {
+        const block = getAtlasRegionBlock(atlasText, regionName)
+        if (block && /bounds:\s*\d+,\s*\d+,\s*1,\s*1/i.test(block)) {
+            return regionName
+        }
+    }
+    return [...atlasRegions][0] || null
+}
+
+function copyAtlasTextures(atlasText, sourceDir, targetDir) {
+    const textureNames = new Set()
+    for (const line of atlasText.split('\n')) {
+        const trimmed = line.trim()
+        if (/\.(webp|png|jpe?g)$/i.test(trimmed)) textureNames.add(trimmed)
+    }
+    for (const textureName of textureNames) {
+        const sourcePath = path.join(sourceDir, textureName)
+        const targetPath = path.join(targetDir, textureName)
+        if (!fs.existsSync(sourcePath)) continue
+        if (!fs.existsSync(targetPath) || fs.statSync(sourcePath).mtimeMs > fs.statSync(targetPath).mtimeMs) {
+            fs.copyFileSync(sourcePath, targetPath)
+        }
+    }
+}
+
+function patchSpineAtlasIfNeeded(jsonPath, atlasPath) {
+    const unchanged = { patchedPath: atlasPath, addedRegions: [], unresolvedRegions: [] }
+    try {
+        const json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
+        const atlasText = fs.readFileSync(atlasPath, 'utf8')
+        const attachmentPaths = collectJsonAttachmentPaths(json)
+        const originalAtlasRegions = parseAtlasRegionNames(atlasText)
+        const missing = [...attachmentPaths].filter(name => !originalAtlasRegions.has(name))
+        if (missing.length === 0) return unchanged
+
+        const addedRegions = []
+        const unresolvedRegions = []
+        const patchBlocks = []
+        const placeholderRegion = findPlaceholderAtlasRegion(atlasText, originalAtlasRegions)
+        const patchedBlocksByRegion = new Map()
+
+        for (const regionName of missing) {
+            let fallback = findAtlasFallbackRegion(regionName, originalAtlasRegions)
+            if (!fallback) fallback = placeholderRegion
+            if (!fallback) {
+                unresolvedRegions.push(regionName)
+                continue
+            }
+            let block = patchedBlocksByRegion.get(fallback) || getAtlasRegionBlock(atlasText, fallback)
+            if (!block) {
+                unresolvedRegions.push(regionName)
+                continue
+            }
+            const patchedBlock = block.replace(/^[^\n]+/m, regionName)
+            patchBlocks.push(patchedBlock)
+            patchedBlocksByRegion.set(regionName, patchedBlock)
+            addedRegions.push(regionName)
+        }
+        if (patchBlocks.length === 0) {
+            return { patchedPath: atlasPath, addedRegions, unresolvedRegions: missing }
+        }
+
+        const patchedAtlas = `${atlasText.trimEnd()}\n${patchBlocks.join('\n')}\n`
+        const sourceDir = path.dirname(atlasPath)
+        const patchDir = path.join(userDataPath, 'spine-atlas-patches', path.basename(sourceDir))
+        fs.mkdirSync(patchDir, { recursive: true })
+        const patchName = `${path.basename(atlasPath, '.atlas')}-${Buffer.from(missing.sort().join('|')).toString('hex').slice(0, 16)}.atlas`
+        const patchedPath = path.join(patchDir, patchName)
+        fs.writeFileSync(patchedPath, patchedAtlas, 'utf8')
+        copyAtlasTextures(atlasText, sourceDir, patchDir)
+        console.warn(`Patched atlas for ${path.basename(jsonPath)}: added ${addedRegions.join(', ')}`)
+        return { patchedPath, addedRegions, unresolvedRegions }
+    } catch (error) {
+        console.warn('Atlas patch skipped:', error.message)
+        return unchanged
+    }
 }

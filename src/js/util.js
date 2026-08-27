@@ -94,3 +94,41 @@ const setTrackTime = (state, trackIndex, time) => {
     const entry = getAnimationTrackEntry(state, trackIndex)
     if (entry) entry.trackTime = time
 }
+
+const formatSpineLoadError = (error) => {
+    const message = error?.message || String(error)
+    if (/region not found in atlas/i.test(message)) {
+        const match = message.match(/Region not found in atlas: ([^\s(]+)/i)
+        const region = match?.[1] || 'unknown'
+        return `Atlas is missing region "${region}". The export files don't fully match — Spine Viewer tried to patch the atlas automatically.`
+    }
+    if (/region not set/i.test(message)) {
+        return 'Atlas regions do not match the skeleton JSON. Spine Viewer could not fully repair this export.'
+    }
+    if (/not found|404|failed to fetch/i.test(message)) {
+        return 'Could not load one of the spine files. Drop the .json/.skel file — the viewer will pull in .atlas and textures from the same folder.'
+    }
+    return `Spine load failed: ${message}`
+}
+
+const showSpineLoadWarnings = (warnings) => {
+    if (!Array.isArray(warnings) || warnings.length === 0) return
+    const lines = warnings.map((warning) => {
+        const patched = warning.addedRegions?.length
+            ? `patched ${warning.addedRegions.join(', ')}`
+            : ''
+        const unresolved = warning.unresolvedRegions?.length
+            ? `could not repair ${warning.unresolvedRegions.join(', ')}`
+            : ''
+        return [warning.skeleton, patched, unresolved].filter(Boolean).join(': ')
+    })
+    console.warn('Spine atlas repair:', lines.join('\n'))
+}
+
+const prepareSpineFilePaths = async (filePaths) => {
+    const result = await preload.expandSpineAssetPaths(filePaths)
+    const expanded = Array.isArray(result) ? result : result.paths
+    showSpineLoadWarnings(result?.warnings)
+    window.spineLoadWarnings = result?.warnings || []
+    return [...new Set(expanded)].filter(isSpineAssetPath)
+}

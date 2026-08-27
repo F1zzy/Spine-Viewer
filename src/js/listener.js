@@ -20,7 +20,8 @@ getById('main').addEventListener('drop', async (ev) => {
     getById('mask').style.display = 'none'
     const filePaths = Array.from(ev.dataTransfer.files).map(f => f.path).filter(isSpineAssetPath)
     if (filePaths.length > 0 && filePaths.some(isSpineSkeletonPath)) {
-        const fileUrls = await getUrlsByPaths(filePaths)
+        const expandedPaths = await prepareSpineFilePaths(filePaths)
+        const fileUrls = await getUrlsByPaths(expandedPaths)
         window.fileUrls = fileUrls
         loadFiles(fileUrls)
     }
@@ -41,6 +42,7 @@ fileInput.addEventListener('change', async () => {
     if (fileInput.files.length > 0) {
         let filePaths = Array.from(fileInput.files).map(f => f.path).filter(isSpineAssetPath)
         if (filePaths.length === 0 || !filePaths.some(isSpineSkeletonPath)) return
+        filePaths = await prepareSpineFilePaths(filePaths)
         let fileUrls = await getUrlsByPaths(filePaths)
         window.fileUrls = fileUrls
         loadFiles(fileUrls)

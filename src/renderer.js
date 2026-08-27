@@ -88,7 +88,7 @@ const loadFiles = async (fileUrls) => {
         onLoaded(currentBatch)
     } catch (e) {
         console.error('Asset load failed', e)
-        alert('Invalid or unsupported file (need a .json or .skel with atlas and textures loading correctly).')
+        alert(formatSpineLoadError(e))
     }
 }
 
@@ -96,7 +96,7 @@ const loadFiles = async (fileUrls) => {
 function onLoaded(assetKeys) {
     const {skins, skeletons} = loadSkeletons(assetKeys)
     if (!skeletons || skeletons.length === 0) {
-        alert('Invalid or unsupported file (need a .json or .skel with atlas and textures loading correctly).')
+        alert('Could not create a spine skeleton. Include matching .json/.skel, .atlas, and texture files from the same export.')
         return
     }
     if (superposition) {
@@ -245,6 +245,7 @@ function onLoaded(assetKeys) {
                 skeletons.push(skeleton)
             } catch (e) {
                 console.error('Spine load failed for', key, e)
+                throw e
             }
         }
         return {skins, skeletons}
@@ -253,13 +254,31 @@ function onLoaded(assetKeys) {
 
 const assetKeyToUrl = (assetKey) => assetKey.replace(/^asset:/, '')
 
+const basenameFromPath = (filePath) => {
+    const parts = filePath.split('/')
+    return parts[parts.length - 1] || filePath
+}
+
 const findAtlasForSkeleton = (skeletonUrl, atlasUrls) => {
     const normalizedSkeleton = pathFromLoaderUrl(skeletonUrl)
-    const skeletonBase = normalizedSkeleton.replace(/\.(json|skel)$/i, '')
-    return atlasUrls.find((atlasUrl) => {
+    const skeletonBase = basenameFromPath(normalizedSkeleton).replace(/\.(json|skel)$/i, '')
+    const matches = atlasUrls.filter((atlasUrl) => {
         const normalizedAtlas = pathFromLoaderUrl(atlasUrl)
-        return normalizedAtlas === `${skeletonBase}.atlas`
-    }) || atlasUrls[0]
+        const atlasFile = basenameFromPath(normalizedAtlas)
+        const atlasBase = atlasFile.replace(/\.atlas$/i, '').replace(/-[0-9a-f]{16}$/i, '')
+        return atlasBase === skeletonBase || atlasFile === `${skeletonBase}.atlas`
+    })
+    if (matches.length === 0) return atlasUrls[0]
+    return matches.sort((a, b) => {
+        const aPatched = isPatchedAtlasPath(a) ? 1 : 0
+        const bPatched = isPatchedAtlasPath(b) ? 1 : 0
+        return bPatched - aPatched
+    })[0]
+}
+
+const isPatchedAtlasPath = (atlasUrl) => {
+    const normalized = pathFromLoaderUrl(atlasUrl)
+    return normalized.includes('/spine-atlas-patches/') || /-[0-9a-f]{16}\.atlas$/i.test(normalized)
 }
 
 // Decorate Spine skeleton (pan/zoom on view)
