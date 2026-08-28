@@ -139,7 +139,29 @@
             <div>Width: <span id="resolution-width"></span>px</div>
             <div>Height: <span id="resolution-height"></span>px</div>
         </div>
-        <div id="frame-counter">Frame <span id="frame-current">0</span> / <span id="frame-total">0</span></div>
+        <div id="scene-overlay">
+            <div class="overlay-title">
+                <span id="overlay-animation">—</span>
+                <span id="overlay-paused">Paused</span>
+            </div>
+            <div class="overlay-row">
+                <span class="overlay-label">Frame</span>
+                <span><span id="frame-current">0</span> / <span id="frame-total">0</span></span>
+            </div>
+            <div class="overlay-row">
+                <span class="overlay-label">Time</span>
+                <span id="overlay-time">0.00 / 0.00s</span>
+            </div>
+            <div class="overlay-row">
+                <span class="overlay-label">Speed</span>
+                <span id="overlay-speed">1.00x</span>
+            </div>
+            <div class="overlay-row">
+                <span class="overlay-label">FPS</span>
+                <span id="overlay-fps">—</span>
+            </div>
+            <div class="overlay-footer" id="overlay-meta">—</div>
+        </div>
         <div id="timeline-bar">
             <button id="timeline-play" type="button" title="Play/Pause" onclick="toggleTimelinePlayback()">▶</button>
             <input type="range" id="timeline" value="0" min="0" max="1000" step="1" disabled>

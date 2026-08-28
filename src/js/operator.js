@@ -104,7 +104,16 @@ const getTimelineState = () => {
 
     const duration = entry.animation.duration
     const time = duration > 0 ? entry.trackTime % duration : entry.trackTime
-    return {time, duration}
+    const skeleton = spineInstance.skeleton
+    return {
+        time,
+        duration,
+        animationName: entry.animation.name || animationName,
+        loopCount: duration > 0 ? Math.floor(entry.trackTime / duration) : 0,
+        skin: skeleton?.skin?.name || skeleton?.data?.defaultSkin?.name || '',
+        bones: skeleton?.bones?.length ?? 0,
+        slots: skeleton?.slots?.length ?? 0,
+    }
 }
 
 const TIMELINE_FPS = 30
@@ -116,15 +125,33 @@ const getFrameFromTime = (time, duration) => {
     return {current: currentFrame, total: totalFrames}
 }
 
-const updateFrameCounter = (time, duration) => {
-    const {current, total} = getFrameFromTime(time, duration)
+const updateSceneOverlay = (time, duration) => {
+    const state = getTimelineState()
+    const currentTime = time ?? state?.time ?? 0
+    const currentDuration = duration ?? state?.duration ?? 0
+    const {current, total} = getFrameFromTime(currentTime, currentDuration)
+    const percent = currentDuration > 0 ? Math.min((currentTime / currentDuration) * 100, 100) : 0
+    const fps = Math.round(app?.ticker?.FPS || 0)
+
     getById('frame-current').innerText = `${current}`
     getById('frame-total').innerText = `${total}`
+    getById('overlay-animation').innerText = state?.animationName || '—'
+    getById('overlay-time').innerText = `${currentTime.toFixed(2)} / ${currentDuration.toFixed(2)}s  ${percent.toFixed(0)}%`
+    getById('overlay-speed').innerText = `${(+speedInput.value).toFixed(2)}x`
+    getById('overlay-fps').innerText = fps > 0 ? `${fps}` : '—'
+    getById('overlay-paused').classList.toggle('visible', timelinePaused)
+
+    const metaParts = []
+    if (state?.skin) metaParts.push(state.skin)
+    if (state?.bones) metaParts.push(`${state.bones} bones`)
+    if (state?.slots) metaParts.push(`${state.slots} slots`)
+    if (state?.loopCount > 0) metaParts.push(`loop ${state.loopCount}`)
+    getById('overlay-meta').innerText = metaParts.join(' · ') || '—'
 }
 
 const updateTimelineDisplay = (time, duration) => {
     getById('timeline-show').innerText = `${time.toFixed(2)} / ${duration.toFixed(2)}s`
-    updateFrameCounter(time, duration)
+    updateSceneOverlay(time, duration)
 }
 
 const initTimeline = (duration) => {
@@ -134,7 +161,7 @@ const initTimeline = (duration) => {
     const timelineBar = getById('timeline-bar')
     const timelineInput = getById('timeline')
     timelineBar.style.display = 'flex'
-    getById('frame-counter').style.display = 'block'
+    getById('scene-overlay').style.display = 'block'
     timelineInput.disabled = false
     timelineInput.max = Math.max(Math.round(duration * 1000), 1)
     timelineInput.value = 0
@@ -145,7 +172,7 @@ const initTimeline = (duration) => {
 
 const hideTimeline = () => {
     getById('timeline-bar').style.display = 'none'
-    getById('frame-counter').style.display = 'none'
+    getById('scene-overlay').style.display = 'none'
     getById('timeline').disabled = true
     currentAnimationDuration = 0
     timelinePaused = false

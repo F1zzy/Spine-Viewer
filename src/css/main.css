@@ -172,16 +172,76 @@ button {
     position: absolute;
 }
 
-#frame-counter {
+#scene-overlay {
     top: 10px;
     right: 10px;
     z-index: 8;
     display: none;
+    min-width: 168px;
+    max-width: 240px;
+    padding: 8px 10px;
     color: #d2d2d2;
     position: absolute;
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.45;
+    border-radius: 6px;
+    pointer-events: none;
     font-variant-numeric: tabular-nums;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    background: rgba(20, 20, 20, 0.62);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+#scene-overlay .overlay-title {
+    gap: 8px;
+    color: #fff;
+    display: flex;
+    font-size: 13px;
+    font-weight: 600;
+    align-items: center;
+    margin-bottom: 6px;
+    justify-content: space-between;
+}
+
+#overlay-animation {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#overlay-paused {
+    display: none;
+    flex-shrink: 0;
+    color: #f0d48a;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: rgba(240, 212, 138, 0.16);
+}
+
+#overlay-paused.visible {
+    display: inline-block;
+}
+
+#scene-overlay .overlay-row {
+    gap: 12px;
+    display: flex;
+    justify-content: space-between;
+}
+
+#scene-overlay .overlay-label {
+    color: #9a9a9a;
+}
+
+#scene-overlay .overlay-footer {
+    color: #9a9a9a;
+    font-size: 11px;
+    margin-top: 6px;
+    padding-top: 5px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #timeline-bar {
