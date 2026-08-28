@@ -107,8 +107,24 @@ const getTimelineState = () => {
     return {time, duration}
 }
 
+const TIMELINE_FPS = 30
+
+const getFrameFromTime = (time, duration) => {
+    const totalFrames = Math.max(Math.round(duration * TIMELINE_FPS), 1)
+    if (duration <= 0) return {current: 0, total: 0}
+    const currentFrame = Math.min(Math.floor(time * TIMELINE_FPS) + 1, totalFrames)
+    return {current: currentFrame, total: totalFrames}
+}
+
+const updateFrameCounter = (time, duration) => {
+    const {current, total} = getFrameFromTime(time, duration)
+    getById('frame-current').innerText = `${current}`
+    getById('frame-total').innerText = `${total}`
+}
+
 const updateTimelineDisplay = (time, duration) => {
     getById('timeline-show').innerText = `${time.toFixed(2)} / ${duration.toFixed(2)}s`
+    updateFrameCounter(time, duration)
 }
 
 const initTimeline = (duration) => {
@@ -118,6 +134,7 @@ const initTimeline = (duration) => {
     const timelineBar = getById('timeline-bar')
     const timelineInput = getById('timeline')
     timelineBar.style.display = 'flex'
+    getById('frame-counter').style.display = 'block'
     timelineInput.disabled = false
     timelineInput.max = Math.max(Math.round(duration * 1000), 1)
     timelineInput.value = 0
@@ -128,6 +145,7 @@ const initTimeline = (duration) => {
 
 const hideTimeline = () => {
     getById('timeline-bar').style.display = 'none'
+    getById('frame-counter').style.display = 'none'
     getById('timeline').disabled = true
     currentAnimationDuration = 0
     timelinePaused = false
