@@ -124,7 +124,7 @@ function onLoaded(assetKeys) {
         if (skinList.innerHTML === '') {
             input.checked = true
         }
-        label.innerHTML += s
+        label.append(createListNameWithCopy(s, 'skin name'))
         li.append(input)
         li.append(label)
         skinList.append(li)
@@ -142,7 +142,7 @@ function onLoaded(assetKeys) {
         input.addEventListener('click', toggleAnimation)
         input.classList.add('list-option')
         span.innerText = a.duration + 's'
-        label.innerHTML += a.name
+        label.append(createListNameWithCopy(a.name, 'animation name'))
         label.append(span)
         li.append(input)
         li.append(label)

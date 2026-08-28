@@ -418,6 +418,67 @@ input.list-option {
     background-color: #728181;
 }
 
+.list-name-wrap {
+    gap: 6px;
+    min-width: 0;
+    display: flex;
+    flex: 1;
+    align-items: center;
+}
+
+.list-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#side .copy-list-name {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    opacity: 0;
+    color: #d2d2d2;
+    flex-shrink: 0;
+    box-shadow: none;
+    border-radius: 3px;
+    background-color: transparent;
+    transition: opacity 0.12s, background-color 0.12s, color 0.12s;
+}
+
+#side .copy-list-name svg {
+    display: block;
+    margin: auto;
+}
+
+#side .copy-list-name .copied-icon,
+#side .copy-list-name.copied .copy-icon {
+    display: none;
+}
+
+#side .copy-list-name.copied .copied-icon {
+    display: block;
+}
+
+#side .list li:hover .copy-list-name,
+#side .copy-list-name:focus-visible {
+    opacity: 1;
+}
+
+#side .copy-list-name:hover {
+    color: #fff;
+    background-color: #6a6a6a;
+}
+
+#side .copy-list-name:active {
+    background-color: #5a5a5a;
+}
+
+#side .copy-list-name.copied {
+    opacity: 1;
+    color: #c5e0c0;
+}
+
 .list li .slot-alpha {
     display: flex;
     align-items: center;

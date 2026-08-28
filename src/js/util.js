@@ -7,6 +7,64 @@ const createTag = (e) => {
     return document.createElement(e)
 }
 
+const copyTextToClipboard = async (text) => {
+    try {
+        await navigator.clipboard.writeText(text)
+        return true
+    } catch (e) {
+        const input = createTag('textarea')
+        input.value = text
+        input.setAttribute('readonly', '')
+        input.style.position = 'fixed'
+        input.style.left = '-9999px'
+        document.body.appendChild(input)
+        input.select()
+        const ok = document.execCommand('copy')
+        input.remove()
+        return ok
+    }
+}
+
+const COPY_NAME_ICON = '<svg class="copy-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="5.5" y="1.5" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="1.5" y="5.5" width="9" height="9" rx="1.5" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.4"/></svg><svg class="copied-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+const createCopyNameButton = (text, itemLabel = 'name') => {
+    const copyBtn = createTag('button')
+    const title = `Copy ${itemLabel}`
+    copyBtn.type = 'button'
+    copyBtn.classList.add('copy-list-name')
+    copyBtn.title = title
+    copyBtn.setAttribute('aria-label', `Copy ${text}`)
+    copyBtn.innerHTML = COPY_NAME_ICON
+    const preventToggle = (ev) => {
+        ev.preventDefault()
+        ev.stopPropagation()
+    }
+    copyBtn.addEventListener('mousedown', preventToggle)
+    copyBtn.addEventListener('click', async (ev) => {
+        preventToggle(ev)
+        const ok = await copyTextToClipboard(text)
+        if (!ok) return
+        copyBtn.classList.add('copied')
+        copyBtn.title = 'Copied'
+        window.setTimeout(() => {
+            copyBtn.classList.remove('copied')
+            copyBtn.title = title
+        }, 1200)
+    })
+    return copyBtn
+}
+
+const createListNameWithCopy = (name, itemLabel = 'name') => {
+    const nameWrap = createTag('span')
+    const nameText = createTag('span')
+    nameWrap.classList.add('list-name-wrap')
+    nameText.classList.add('list-name')
+    nameText.innerText = name
+    nameWrap.append(nameText)
+    nameWrap.append(createCopyNameButton(name, itemLabel))
+    return nameWrap
+}
+
 const isSpineSkeletonPath = (p) => /\.(json|skel)$/i.test(p)
 
 const isSpineAssetPath = (p) => /\.(json|skel|atlas|webp|png|jpe?g)$/i.test(p)
