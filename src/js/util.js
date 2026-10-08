@@ -120,6 +120,128 @@ const setSlotAlpha = (slot, alpha) => {
     if (color) color.a = alpha
 }
 
+const getSlotAttachment = (slot) => {
+    return slot?.appliedPose?.attachment
+        ?? (typeof slot?.getAttachment === 'function' ? slot.getAttachment() : null)
+        ?? slot?.attachment
+        ?? null
+}
+
+const skinHasSlotAttachments = (skin, slotIndex) => {
+    if (!skin || slotIndex < 0) return false
+    if (typeof skin.getAttachmentsForSlot === 'function') {
+        const entries = []
+        skin.getAttachmentsForSlot(slotIndex, entries)
+        if (entries.length > 0) return true
+    }
+    const byIndex = skin.attachments?.[slotIndex]
+    return !!(byIndex && Object.keys(byIndex).length)
+}
+
+const isSlotUsed = (slot, skeleton) => {
+    if (!slot) return false
+    if (slot.data?.visible === false) return false
+    if (getSlotAttachment(slot)) return true
+    const slotIndex = slot.data?.index ?? skeleton?.slots?.indexOf?.(slot) ?? -1
+    const skins = [skeleton?.skin, skeleton?.data?.defaultSkin].filter((skin, index, list) => skin && list.indexOf(skin) === index)
+    if (skins.some(skin => skinHasSlotAttachments(skin, slotIndex))) return true
+    return !!slot.data?.attachmentName
+}
+
+const getDrawOrderSlots = (skeleton) => {
+    const drawOrder = skeleton?.drawOrder
+    if (Array.isArray(drawOrder?.appliedPose)) return drawOrder.appliedPose
+    if (Array.isArray(drawOrder?.pose)) return drawOrder.pose
+    if (Array.isArray(drawOrder)) return drawOrder
+    if (Array.isArray(skeleton?.slots)) return skeleton.slots
+    return []
+}
+
+const isRegionAttachment = (attachment) => typeof attachment?.getOffsets === 'function'
+
+const isMeshAttachment = (attachment) => Number(attachment?.worldVerticesLength) > 0 && attachment?.triangles
+
+const computeAttachmentVertices = (spineInstance, slot, attachment) => {
+    try {
+        if (isRegionAttachment(attachment)) {
+            const vertices = new Float32Array(8)
+            const pose = slot.appliedPose || slot
+            attachment.computeWorldVertices(slot, attachment.getOffsets(pose), vertices, 0, 2)
+            return {vertices, triangles: [0, 1, 2, 0, 2, 3], hullLength: 8}
+        }
+        if (isMeshAttachment(attachment) || Number(attachment?.worldVerticesLength) > 0) {
+            const count = attachment.worldVerticesLength
+            const vertices = new Float32Array(count)
+            attachment.computeWorldVertices(spineInstance.skeleton, slot, 0, count, vertices, 0, 2)
+            return {vertices, triangles: attachment.triangles || null, hullLength: attachment.hullLength || 0}
+        }
+    } catch (e) {
+        const cached = spineInstance?._getCachedData?.(slot, attachment)
+        if (cached?.vertices && cached.vertices.length >= 6) {
+            const clipped = cached.clipped && cached.clippedData?.vertices?.length >= 6
+            return {
+                vertices: clipped ? cached.clippedData.vertices : cached.vertices,
+                triangles: clipped ? cached.clippedData.indices : (cached.indices || attachment.triangles || null),
+                hullLength: attachment.hullLength || 0
+            }
+        }
+        return null
+    }
+    return null
+}
+
+const pointInPolygon = (x, y, vertices) => {
+    let inside = false
+    const count = Math.floor(vertices.length / 2)
+    for (let i = 0, j = count - 1; i < count; j = i++) {
+        const xi = vertices[i * 2]
+        const yi = vertices[i * 2 + 1]
+        const xj = vertices[j * 2]
+        const yj = vertices[j * 2 + 1]
+        const denom = yj - yi
+        if (denom !== 0 && (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / denom + xi) {
+            inside = !inside
+        }
+    }
+    return inside
+}
+
+const pointInTriangle = (px, py, ax, ay, bx, by, cx, cy) => {
+    const v0x = cx - ax
+    const v0y = cy - ay
+    const v1x = bx - ax
+    const v1y = by - ay
+    const v2x = px - ax
+    const v2y = py - ay
+    const dot00 = v0x * v0x + v0y * v0y
+    const dot01 = v0x * v1x + v0y * v1y
+    const dot02 = v0x * v2x + v0y * v2y
+    const dot11 = v1x * v1x + v1y * v1y
+    const dot12 = v1x * v2x + v1y * v2y
+    const denom = dot00 * dot11 - dot01 * dot01
+    if (denom === 0) return false
+    const u = (dot11 * dot02 - dot01 * dot12) / denom
+    const v = (dot00 * dot12 - dot01 * dot02) / denom
+    return u >= 0 && v >= 0 && u + v <= 1
+}
+
+const attachmentContainsPoint = (geometry, x, y) => {
+    if (!geometry?.vertices) return false
+    const {vertices, triangles} = geometry
+    if (triangles && triangles.length >= 3) {
+        for (let i = 0; i < triangles.length; i += 3) {
+            const a = triangles[i] * 2
+            const b = triangles[i + 1] * 2
+            const c = triangles[i + 2] * 2
+            if (pointInTriangle(x, y, vertices[a], vertices[a + 1], vertices[b], vertices[b + 1], vertices[c], vertices[c + 1])) {
+                return true
+            }
+        }
+        return false
+    }
+    return pointInPolygon(x, y, vertices)
+}
+
 const getAnimationTrackEntry = (state, trackIndex) => {
     if (!state) return null
     if (typeof state.getTrack === 'function') return state.getTrack(trackIndex)

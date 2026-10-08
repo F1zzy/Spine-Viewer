@@ -37,6 +37,11 @@ getById('anchor-dot').addEventListener('click', (ev) => {
     setAnchorDotVisible(ev.target.checked)
 })
 
+// Slot inspect toggle
+getById('inspect-slots').addEventListener('click', (ev) => {
+    setSlotInspectEnabled(ev.target.checked)
+})
+
 // File picker
 fileInput.addEventListener('change', async () => {
     if (fileInput.files.length > 0) {
@@ -138,6 +143,7 @@ timelineInput.addEventListener('pointercancel', () => {
 })
 
 app.ticker.add(syncTimelineFromState)
+app.ticker.add(syncSlotInspect)
 
 // Default mix time slider
 mixInput.addEventListener('input', () => {
@@ -174,6 +180,9 @@ app.canvas.addEventListener('pointerdown', (event) => {
     }
 });
 app.canvas.addEventListener('pointermove', (event) => {
+    if (slotInspectEnabled) {
+        slotInspectPointer = canvasPointFromEvent(event)
+    }
     if (isDragging) {
         deltaX = event.clientX - mouseX;
         deltaY = event.clientY - mouseY;
@@ -193,6 +202,35 @@ app.canvas.addEventListener('pointerup', () => {
 app.canvas.addEventListener('pointerout', () => {
     isDragging = false;
 });
+app.canvas.addEventListener('pointerleave', (event) => {
+    if (event.relatedTarget?.closest?.('#slot-tooltip')) return
+    slotInspectPointer = null
+    clearSlotInspect()
+});
+
+const slotTooltip = getById('slot-tooltip')
+const slotTooltipCopy = getById('slot-tooltip-copy')
+if (slotTooltipCopy) {
+    slotTooltipCopy.innerHTML = COPY_NAME_ICON
+    slotTooltipCopy.addEventListener('click', async (ev) => {
+        ev.preventDefault()
+        ev.stopPropagation()
+        if (!inspectedSlotName) return
+        const ok = await copyTextToClipboard(inspectedSlotName)
+        if (!ok) return
+        slotTooltipCopy.classList.add('copied')
+        slotTooltipCopy.title = 'Copied'
+        window.setTimeout(() => {
+            slotTooltipCopy.classList.remove('copied')
+            slotTooltipCopy.title = 'Copy slot name'
+        }, 1200)
+    })
+}
+slotTooltip.addEventListener('pointerleave', (event) => {
+    if (event.relatedTarget === app.canvas) return
+    slotInspectPointer = null
+    clearSlotInspect()
+})
 
 app.canvas.addEventListener('wheel', (event) => {
     event.preventDefault();

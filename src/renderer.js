@@ -17,6 +17,11 @@ let track = {current: 0}
 let superposition = false
 let currentSpeed = 1
 let showAnchorDot = false
+let slotInspectEnabled = false
+let slotInspectPointer = null
+let slotInspectShowing = false
+let inspectedSlotName = ''
+let hoveredSlotListItem = null
 let timelinePaused = false
 let timelineScrubbing = false
 let currentAnimationDuration = 0
@@ -60,14 +65,67 @@ const setAnchorDotVisible = (visible) => {
     })
 }
 
+const appendUsedSlots = (spineInstance) => {
+    const skeleton = spineInstance?.skeleton
+    if (!skeleton?.slots) return
+    for (const slot of skeleton.slots) {
+        if (!isSlotUsed(slot, skeleton)) continue
+        const li = createTag('li')
+        const title = createListNameWithCopy(slot.data.name, 'slot name')
+        const div = createTag('div')
+        const label = createTag('label')
+        const input = createTag('input')
+        const value = createTag('span')
+        title.classList.add('slot-title')
+        div.classList.add('slot-alpha')
+        value.classList.add('slot-alpha-value')
+        label.setAttribute('for', `${slotIndex}-${slot.data.name}`)
+        input.setAttribute('id', `${slotIndex++}-${slot.data.name}`)
+        input.setAttribute('type', 'range')
+        input.setAttribute('name', 'slot')
+        input.setAttribute('value', (getSlotSetupAlpha(slot) * 100).toFixed())
+        input.setAttribute('min', '0')
+        input.setAttribute('max', '100')
+        input.setAttribute('step', '1')
+        label.innerText = 'Α:'
+        value.innerText = getSlotSetupAlpha(slot).toFixed(2)
+        div.append(label)
+        div.append(input)
+        div.append(value)
+        li.append(title)
+        li.append(div)
+        input.addEventListener('input', () => {
+            const alpha = +input.value / 100
+            setSlotAlpha(slot, alpha)
+            value.innerText = alpha.toFixed(2)
+        })
+        slotList.append(li)
+        slots.push({
+            slot,
+            inputTag: input,
+            valueTag: value,
+        })
+    }
+}
+
+const rebuildSlotList = () => {
+    slotIndex = 0
+    slots = []
+    slotList.innerHTML = ''
+    getStageSpines().forEach(appendUsedSlots)
+}
+
 const reload = () => {
     resetZoom()
     resetSpeed()
     hideTimeline()
+    clearSlotInspect()
     app.stage.removeChildren()
     skinList.innerHTML = ''
     slotList.innerHTML = ''
     animationList.innerHTML = ''
+    slots = []
+    slotIndex = 0
     getById('animation-track0').click()
 }
 
@@ -103,6 +161,7 @@ function onLoaded(assetKeys) {
         animationList.innerHTML = ''
     } else {
         slotIndex = 0
+        slots = []
         skinList.innerHTML = ''
         slotList.innerHTML = ''
         animationList.innerHTML = ''
@@ -148,48 +207,7 @@ function onLoaded(assetKeys) {
         li.append(label)
         animationList.append(li)
     })
-    skeletons.forEach(skeleton => {
-        for (const slot of skeleton.skeleton.slots) {
-            const li = createTag('li')
-            const title = createTag('span')
-            const div = createTag('div')
-            const label = createTag('label')
-            const input = createTag('input')
-            const value = createTag('span')
-            title.classList.add('slot-title')
-            div.classList.add('slot-alpha')
-            value.classList.add('slot-alpha-value')
-            label.setAttribute('for', `${slotIndex}-${slot.data.name}`)
-            input.setAttribute('id', `${slotIndex++}-${slot.data.name}`)
-            input.setAttribute('type', 'range')
-            input.setAttribute('name', 'slot')
-            input.setAttribute('value', (getSlotSetupAlpha(slot) * 100).toFixed())
-            input.setAttribute('min', '0')
-            input.setAttribute('max', '100')
-            input.setAttribute('step', '1')
-            title.innerText = slot.data.name
-            label.innerText = 'Α:'
-            value.innerText = getSlotSetupAlpha(slot).toFixed(2)
-            div.append(label)
-            div.append(input)
-            div.append(value)
-            li.append(title)
-            li.append(div)
-            input.addEventListener('input', () => {
-                const alpha = +input.value / 100
-                setSlotAlpha(slot, alpha)
-                value.innerText = alpha.toFixed(2)
-            })
-            slotList.append(li)
-
-            const slotData = {
-                slot,
-                inputTag: input,
-                valueTag: value,
-            }
-            slots.push(slotData)
-        }
-    })
+    skeletons.forEach(appendUsedSlots)
     if (!superposition) app.stage.removeChildren()
     skeletons.forEach(skeleton => app.stage.addChild(skeleton))
     // Re-apply the chosen alpha mode after assets are created by Spine/Pixi v8.
@@ -338,7 +356,7 @@ function decorate(skeleton) {
 // Callbacks
 function toggleSkin(ev) {
     setSkin(ev.target.value)
-    resetSlots()
+    rebuildSlotList()
 }
 
 function toggleAnimation(ev) {
@@ -361,6 +379,7 @@ function toggleAnimation(ev) {
 
 function openExportWindow() {
     isExporting = true
+    clearSlotInspect()
     preload.openExportWindow(availableAnimations)
 }
 

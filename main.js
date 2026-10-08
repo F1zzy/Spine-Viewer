@@ -273,7 +273,7 @@ app.whenReady().then(() => {
                 instruction = `${ffmpegCmd} -y -framerate ${options.framerate} -i "${inputPattern}" -vf "split[s0][s1];[s0]palettegen=reserve_transparent=1[p];[s1][p]paletteuse=alpha_threshold=128" -plays 0 "${outputFile}"`
                 break
             case 'MP4':
-                instruction = `${ffmpegCmd} -y -framerate ${options.framerate} -i "${inputPattern}" -vf "format=yuv420p" -crf 17 -pix_fmt yuv420p "${outputFile}"`
+                instruction = `${ffmpegCmd} -y -framerate ${options.framerate} -i "${inputPattern}" -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" -crf 17 -pix_fmt yuv420p "${outputFile}"`
                 break
             case 'GIF':
             default:

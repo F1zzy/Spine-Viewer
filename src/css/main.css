@@ -172,6 +172,133 @@ button {
     position: absolute;
 }
 
+#slot-highlight-svg {
+    inset: 0;
+    z-index: 7;
+    display: none;
+    position: absolute;
+    overflow: visible;
+    pointer-events: none;
+}
+
+#slot-highlight-poly {
+    fill: rgba(90, 209, 255, 0.22);
+    stroke: #7ae0ff;
+    stroke-width: 2;
+}
+
+#slot-tooltip {
+    z-index: 9;
+    display: none;
+    min-width: 188px;
+    max-width: 260px;
+    padding: 8px 10px 9px;
+    color: #dcdcdc;
+    position: absolute;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 6px;
+    pointer-events: auto;
+    font-variant-numeric: tabular-nums;
+    background: rgba(18, 18, 18, 0.92);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    user-select: text;
+}
+
+.slot-tooltip-kicker {
+    color: #8f8f8f;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.slot-tooltip-title {
+    gap: 8px;
+    display: flex;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    align-items: center;
+    margin: 2px 0 8px;
+    padding-bottom: 7px;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#slot-tooltip-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.slot-tooltip-row {
+    gap: 12px;
+    display: flex;
+    margin-top: 3px;
+    justify-content: space-between;
+}
+
+.slot-tooltip-label {
+    color: #9a9a9a;
+    flex-shrink: 0;
+}
+
+#slot-tooltip-index,
+#slot-tooltip-attachment,
+#slot-tooltip-bone {
+    min-width: 0;
+    color: #f0f0f0;
+    overflow: hidden;
+    text-align: right;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#slot-tooltip .copy-list-name {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    opacity: 1;
+    color: #c8c8c8;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: none;
+    box-shadow: none;
+    border-radius: 3px;
+    background: transparent;
+}
+
+#slot-tooltip .copy-list-name svg {
+    display: block;
+    margin: auto;
+}
+
+#slot-tooltip .copy-list-name .copied-icon,
+#slot-tooltip .copy-list-name.copied .copy-icon {
+    display: none;
+}
+
+#slot-tooltip .copy-list-name.copied .copied-icon {
+    display: block;
+}
+
+#slot-tooltip .copy-list-name:hover {
+    color: #fff;
+    background-color: #3a3a3a;
+}
+
+#slot-tooltip .copy-list-name.copied {
+    color: #c5e0c0;
+}
+
+.list li.slot-list-hover {
+    border-radius: 5px;
+    background-color: rgba(90, 209, 255, 0.22);
+}
+
 #scene-overlay {
     top: 10px;
     right: 10px;
@@ -494,8 +621,19 @@ input.list-option {
 }
 
 .slot-title {
-    width: 250px;
+    min-width: 0;
+    flex: 1;
     overflow: hidden;
+}
+
+.slot-actions {
+    gap: 6px;
+    display: flex;
+    align-items: center;
+}
+
+#side .slot-actions button {
+    width: 48px;
 }
 
 .slot-alpha-value {

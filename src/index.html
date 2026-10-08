@@ -84,6 +84,13 @@
                 <label for="anchor-dot" class="i-label"></label>
             </span>
         </div>
+        <div class="row">
+            <span>Inspect slots</span>
+            <span class="i-checkbox-wrap">
+                <input type="checkbox" id="inspect-slots" class="i-checkbox">
+                <label for="inspect-slots" class="i-label"></label>
+            </span>
+        </div>
 
         <div class="col">
             <span class="animation-label">Skins</span>
@@ -129,7 +136,10 @@
         <div class="col">
             <span class="row-label">
                 Slots
-                <button onclick="resetSlots()">Reset</button>
+                <span class="slot-actions">
+                    <button type="button" id="copy-slots" onclick="copyVisibleSlotNames()">Copy</button>
+                    <button type="button" onclick="resetSlots()">Reset</button>
+                </span>
             </span>
             <ol class="list" id="slots"></ol>
         </div>
@@ -162,6 +172,28 @@
             </div>
             <div class="overlay-footer" id="overlay-meta">—</div>
         </div>
+        <div id="slot-tooltip">
+            <div class="slot-tooltip-kicker">Slot</div>
+            <div class="slot-tooltip-title">
+                <span id="slot-tooltip-name">—</span>
+                <button type="button" id="slot-tooltip-copy" class="copy-list-name" title="Copy slot name" aria-label="Copy slot name"></button>
+            </div>
+            <div class="slot-tooltip-row">
+                <span class="slot-tooltip-label">Index</span>
+                <span id="slot-tooltip-index">—</span>
+            </div>
+            <div class="slot-tooltip-row">
+                <span class="slot-tooltip-label">Attachment</span>
+                <span id="slot-tooltip-attachment">—</span>
+            </div>
+            <div class="slot-tooltip-row">
+                <span class="slot-tooltip-label">Bone</span>
+                <span id="slot-tooltip-bone">—</span>
+            </div>
+        </div>
+        <svg id="slot-highlight-svg" aria-hidden="true">
+            <polygon id="slot-highlight-poly"></polygon>
+        </svg>
         <div id="timeline-bar">
             <button id="timeline-play" type="button" title="Play/Pause" onclick="toggleTimelinePlayback()">▶</button>
             <input type="range" id="timeline" value="0" min="0" max="1000" step="1" disabled>
