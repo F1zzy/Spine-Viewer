@@ -22,6 +22,7 @@ let slotInspectPointer = null
 let slotInspectShowing = false
 let inspectedSlotName = ''
 let hoveredSlotListItem = null
+let pinnedSlot = null
 let timelinePaused = false
 let timelineScrubbing = false
 let currentAnimationDuration = 0
@@ -94,6 +95,10 @@ const appendUsedSlots = (spineInstance) => {
         div.append(value)
         li.append(title)
         li.append(div)
+        li.addEventListener('click', (ev) => {
+            if (ev.target.closest('input, .copy-list-name, .slot-alpha')) return
+            togglePinnedSlot(slot, li, spineInstance)
+        })
         input.addEventListener('input', () => {
             const alpha = +input.value / 100
             setSlotAlpha(slot, alpha)
@@ -111,6 +116,7 @@ const appendUsedSlots = (spineInstance) => {
 const rebuildSlotList = () => {
     slotIndex = 0
     slots = []
+    pinnedSlot = null
     slotList.innerHTML = ''
     getStageSpines().forEach(appendUsedSlots)
 }
@@ -119,6 +125,7 @@ const reload = () => {
     resetZoom()
     resetSpeed()
     hideTimeline()
+    pinnedSlot = null
     clearSlotInspect()
     app.stage.removeChildren()
     skinList.innerHTML = ''
@@ -162,6 +169,7 @@ function onLoaded(assetKeys) {
     } else {
         slotIndex = 0
         slots = []
+        pinnedSlot = null
         skinList.innerHTML = ''
         slotList.innerHTML = ''
         animationList.innerHTML = ''

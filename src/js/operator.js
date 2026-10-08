@@ -289,6 +289,77 @@ const clearSlotInspect = () => {
     inspectedSlotName = ''
 }
 
+const setPinnedListItem = (listItem) => {
+    document.querySelectorAll('#slots .slot-list-selected').forEach(el => {
+        if (el !== listItem) el.classList.remove('slot-list-selected')
+    })
+    if (listItem) listItem.classList.add('slot-list-selected')
+}
+
+const slotGeometryCenter = (spineInstance, vertices) => {
+    let x = 0
+    let y = 0
+    let count = 0
+    for (let i = 0; i < vertices.length; i += 2) {
+        const point = {x: vertices[i], y: vertices[i + 1]}
+        if (typeof spineInstance.skeletonToPixiWorldCoordinates === 'function') {
+            spineInstance.skeletonToPixiWorldCoordinates(point)
+        } else {
+            point.x = spineInstance.x + vertices[i] * (spineInstance.scale.x || 1)
+            point.y = spineInstance.y + vertices[i + 1] * (spineInstance.scale.y || 1)
+        }
+        x += point.x
+        y += point.y
+        count++
+    }
+    return count ? {x: x / count, y: y / count} : {x: 24, y: 24}
+}
+
+const getHitForSlot = (spineInstance, slot) => {
+    if (!spineInstance?.skeleton || !slot) return null
+    const attachment = getSlotAttachment(slot)
+    if (!attachment) return null
+    const geometry = computeAttachmentVertices(spineInstance, slot, attachment)
+    if (!geometry?.vertices || geometry.vertices.length < 6) return null
+    return {
+        spineInstance,
+        slot,
+        attachment,
+        geometry,
+        index: spineInstance.skeleton.slots.indexOf(slot)
+    }
+}
+
+const showPinnedSlotOutline = () => {
+    if (!pinnedSlot) return false
+    const spineInstance = getStageSpines().find(spine => spine.skeleton?.slots?.includes(pinnedSlot.slot))
+        || pinnedSlot.spineInstance
+    setPinnedListItem(pinnedSlot.listItem)
+    const hit = getHitForSlot(spineInstance, pinnedSlot.slot)
+    if (!hit) {
+        clearSvgHighlight()
+        forEachSpine(other => {
+            if (other.slotHighlight && !other.slotHighlight.destroyed) other.slotHighlight.clear()
+        })
+        return true
+    }
+    drawSlotHighlight(hit.spineInstance, hit.geometry)
+    updateSlotTooltip(hit, slotGeometryCenter(hit.spineInstance, hit.geometry.vertices))
+    slotInspectShowing = true
+    return true
+}
+
+const togglePinnedSlot = (slot, listItem, spineInstance) => {
+    if (pinnedSlot?.slot === slot) {
+        pinnedSlot = null
+        setPinnedListItem(null)
+        if (!slotInspectEnabled || !slotInspectPointer) clearSlotInspect()
+        return
+    }
+    pinnedSlot = {slot, listItem, spineInstance}
+    showPinnedSlotOutline()
+}
+
 const copyVisibleSlotNames = async () => {
     const names = slots
         .filter(sd => sd.inputTag?.isConnected)
@@ -310,7 +381,7 @@ const setSlotInspectEnabled = (enabled) => {
     if (app.canvas) app.canvas.style.cursor = enabled ? 'crosshair' : ''
     if (!enabled) {
         slotInspectPointer = null
-        clearSlotInspect()
+        if (!pinnedSlot) clearSlotInspect()
     }
 }
 
@@ -435,17 +506,23 @@ const highlightSlotListItem = (slot) => {
 }
 
 const syncSlotInspect = () => {
-    if (!slotInspectEnabled || isExporting || !slotInspectPointer) {
+    if (isExporting) {
         if (slotInspectShowing) clearSlotInspect()
         return
     }
-    const hit = findSlotAtPoint(slotInspectPointer.x, slotInspectPointer.y)
-    if (!hit) {
-        if (slotInspectShowing) clearSlotInspect()
+    if (slotInspectEnabled && slotInspectPointer) {
+        const hit = findSlotAtPoint(slotInspectPointer.x, slotInspectPointer.y)
+        if (hit) {
+            drawSlotHighlight(hit.spineInstance, hit.geometry)
+            updateSlotTooltip(hit, slotInspectPointer)
+            highlightSlotListItem(hit.slot)
+            slotInspectShowing = true
+            return
+        }
+    }
+    if (pinnedSlot) {
+        showPinnedSlotOutline()
         return
     }
-    drawSlotHighlight(hit.spineInstance, hit.geometry)
-    updateSlotTooltip(hit, slotInspectPointer)
-    highlightSlotListItem(hit.slot)
-    slotInspectShowing = true
+    if (slotInspectShowing) clearSlotInspect()
 }

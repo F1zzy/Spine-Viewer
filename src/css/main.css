@@ -299,6 +299,16 @@ button {
     background-color: rgba(90, 209, 255, 0.22);
 }
 
+.list li.slot-list-selected {
+    border-radius: 5px;
+    background-color: rgba(90, 209, 255, 0.28);
+    outline: 1px solid rgba(122, 224, 255, 0.55);
+}
+
+#slots li {
+    cursor: pointer;
+}
+
 #scene-overlay {
     top: 10px;
     right: 10px;
